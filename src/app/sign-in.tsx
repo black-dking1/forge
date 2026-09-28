@@ -1,288 +1,227 @@
 /**
  * Sign in / sign up.
  *
- * One screen, two modes, toggled at the top — the same shape as your
- * mockup. Keeping both in one file means the layout, spacing and
- * error handling can't drift apart between them.
+ * One screen, two modes, switched by the pill at the top. The FORGE
+ * wordmark powers on letter by letter as the screen opens.
  */
 
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, radius, shared, space, type } from '../theme';
+import { colors, shared, space, type } from '../theme';
+import { haptic } from '../lib/haptics';
 import { signIn, signUp } from '../lib/auth';
+import { Wordmark } from '../components/art';
+import { Icon, type IconName } from '../components/icons';
+import { PillTabs } from '../components/pill-tabs';
+import { PrimaryButton, Screen } from '../components/ui';
 
 type Mode = 'in' | 'up';
+
+const MODES: { key: Mode; label: string }[] = [
+  { key: 'in', label: 'SIGN IN' },
+  { key: 'up', label: 'SIGN UP' },
+];
 
 export default function SignInScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('in');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+  }
+
   async function submit() {
     setError(null);
     setNotice(null);
 
-    // Check the obvious things here rather than making the user wait
+    // Catch the obvious mistakes here instead of making someone wait
     // for a round trip to be told their password is too short.
-    if (!email.includes('@')) return setError('That email address does not look right.');
-    if (password.length < 6) return setError('Password must be at least 6 characters.');
+    if (!email.includes('@')) {
+      haptic.reject();
+      return setError('That email address doesn’t look right.');
+    }
+    if (password.length < 6) {
+      haptic.reject();
+      return setError('Password must be at least 6 characters.');
+    }
 
     setBusy(true);
-    const result =
-      mode === 'in'
-        ? await signIn(email, password)
-        : await signUp(email, password, name);
+    const result = mode === 'in' ? await signIn(email.trim(), password) : await signUp(email.trim(), password, name.trim());
     setBusy(false);
 
     if (result.error) {
+      haptic.reject();
       setError(result.error);
       return;
     }
 
     if (mode === 'up') {
-      // Supabase may require email confirmation depending on your
-      // project settings. If it does, there's no session yet and
-      // redirecting would bounce straight back here.
-      setNotice('Account created. If FORGE asks you to confirm your email, check your inbox, then sign in.');
+      // If "Confirm email" is still on in Supabase there's no session
+      // yet, and sending them to Home would bounce straight back here.
+      setNotice('Account created. If you were sent a confirmation email, open it, then sign in.');
       setMode('in');
       return;
     }
 
+    haptic.confirm();
     router.replace('/home');
   }
 
   return (
-    <KeyboardAvoidingView
-      style={shared.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          padding: space.xl,
-        }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Wordmark */}
-        <Text style={[type.hero, { color: colors.text }]}>FORGE</Text>
-        <Text
-          style={[
-            type.label,
-            { color: colors.accent, marginTop: space.sm, marginBottom: space.xxl },
-          ]}
+    <Screen>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 26, paddingVertical: space.xxxl }}
+          keyboardShouldPersistTaps="handled"
         >
-          PROJECT MISSION CONTROL
-        </Text>
+          <Wordmark />
+          <Text style={[type.header, { color: colors.dim, marginTop: space.sm }]}>PROJECT MISSION CONTROL</Text>
 
-        {/* Mode toggle */}
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: colors.surface,
-            borderRadius: radius.pill,
-            borderWidth: 1,
-            borderColor: colors.border,
-            padding: space.xs,
-            marginBottom: space.xl,
-          }}
-        >
-          {(['in', 'up'] as Mode[]).map((m) => {
-            const active = mode === m;
-            return (
-              <Pressable
-                key={m}
-                onPress={() => {
-                  setMode(m);
-                  setError(null);
-                  setNotice(null);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: space.md,
-                  alignItems: 'center',
-                  borderRadius: radius.pill,
-                  backgroundColor: active ? colors.surfaceHigh : 'transparent',
-                }}
-              >
-                <Text
-                  style={[
-                    type.label,
-                    { color: active ? colors.text : colors.textFaint },
-                  ]}
-                >
-                  {m === 'in' ? 'SIGN IN' : 'SIGN UP'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <View style={{ marginTop: 22 }}>
+            <PillTabs options={MODES} value={mode} onChange={switchMode} />
+          </View>
 
-        {mode === 'up' && (
-          <Field
-            label="NAME"
-            value={name}
-            onChange={setName}
-            placeholder="Prime"
-            autoCapitalize="words"
+          <View style={{ gap: 14, marginTop: 22 }}>
+            {mode === 'up' ? (
+              <Field
+                label="NAME"
+                icon="user"
+                value={name}
+                onChange={setName}
+                placeholder="Prime"
+                autoCapitalize="words"
+                autoComplete="name"
+              />
+            ) : null}
+            <Field
+              label="EMAIL"
+              icon="mail"
+              value={email}
+              onChange={setEmail}
+              placeholder="you@forge.build"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+            <Field
+              label="PASSWORD"
+              icon="lock"
+              value={password}
+              onChange={setPassword}
+              placeholder="••••••••••"
+              secure={!showPassword}
+              autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+              onSubmit={submit}
+              trailing={
+                <Pressable onPress={() => setShowPassword((shown) => !shown)} hitSlop={12} accessibilityRole="button">
+                  <Text style={[type.label, { color: colors.dim }]}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
+                </Pressable>
+              }
+            />
+          </View>
+
+          {error ? <Text style={[type.bodySm, { color: colors.danger, marginTop: space.md }]}>{error}</Text> : null}
+          {notice ? <Text style={[type.bodySm, { color: colors.dim, marginTop: space.md }]}>{notice}</Text> : null}
+
+          <PrimaryButton
+            label={mode === 'in' ? 'SIGN IN' : 'START BUILDING'}
+            icon="arrow"
+            busy={busy}
+            onPress={submit}
+            style={{ marginTop: 22 }}
           />
-        )}
 
-        <Field
-          label="EMAIL"
-          value={email}
-          onChange={setEmail}
-          placeholder="you@forge.build"
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        <View>
-          <Field
-            label="PASSWORD"
-            value={password}
-            onChange={setPassword}
-            placeholder="••••••••"
-            secure={!showPassword}
-            autoCapitalize="none"
-          />
-          <Pressable
-            onPress={() => setShowPassword((s) => !s)}
-            hitSlop={10}
-            style={{ position: 'absolute', right: space.lg, top: 34 }}
-          >
-            <Text style={[type.labelSm, { color: colors.textFaint }]}>
-              {showPassword ? 'HIDE' : 'SHOW'}
+          <Pressable onPress={() => switchMode(mode === 'in' ? 'up' : 'in')} hitSlop={8} style={{ marginTop: 22, alignItems: 'center' }}>
+            <Text style={[type.bodySm, { color: colors.faint }]}>
+              {mode === 'in' ? 'First build? ' : 'Already building? '}
+              <Text style={[type.tab, { fontSize: 13, letterSpacing: 1, color: colors.accent }]}>
+                {mode === 'in' ? 'SIGN UP' : 'SIGN IN'}
+              </Text>
             </Text>
           </Pressable>
-        </View>
-
-        {error && (
-          <Text
-            style={[
-              type.bodySm,
-              { color: colors.danger, marginTop: space.md },
-            ]}
-          >
-            {error}
-          </Text>
-        )}
-
-        {notice && (
-          <Text
-            style={[
-              type.bodySm,
-              { color: colors.textDim, marginTop: space.md },
-            ]}
-          >
-            {notice}
-          </Text>
-        )}
-
-        {/* Primary action */}
-        <Pressable
-          onPress={submit}
-          disabled={busy}
-          style={({ pressed }) => [
-            {
-              backgroundColor: colors.accent,
-              borderRadius: radius.md,
-              paddingVertical: space.lg,
-              alignItems: 'center',
-              marginTop: space.xl,
-              opacity: busy ? 0.6 : pressed ? 0.85 : 1,
-            },
-            shared.glow,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={[type.label, { color: '#fff' }]}>
-              {mode === 'in' ? 'SIGN IN  →' : 'START BUILDING  →'}
-            </Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            setMode(mode === 'in' ? 'up' : 'in');
-            setError(null);
-            setNotice(null);
-          }}
-          style={{ marginTop: space.xl, alignItems: 'center' }}
-        >
-          <Text style={[type.bodySm, { color: colors.textDim }]}>
-            {mode === 'in' ? 'First build? ' : 'Already building? '}
-            <Text style={{ color: colors.accent }}>
-              {mode === 'in' ? 'SIGN UP' : 'SIGN IN'}
-            </Text>
-          </Text>
-        </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
-/** One labelled input. Defined here because only this screen uses it. */
+/** A labelled input with an icon, which lights up orange while you type in it. */
 function Field({
   label,
+  icon,
   value,
   onChange,
   placeholder,
   secure,
   keyboardType,
-  autoCapitalize,
+  autoCapitalize = 'none',
+  autoComplete,
+  onSubmit,
+  trailing,
 }: {
   label: string;
+  icon: IconName;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   placeholder?: string;
   secure?: boolean;
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'words';
+  autoComplete?: 'email' | 'name' | 'current-password' | 'new-password';
+  onSubmit?: () => void;
+  trailing?: React.ReactNode;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
-    <View style={{ marginBottom: space.lg }}>
-      <Text style={[type.labelSm, { color: colors.textFaint, marginBottom: space.sm }]}>
-        {label}
-      </Text>
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={colors.todo}
-        secureTextEntry={secure}
-        keyboardType={keyboardType ?? 'default'}
-        autoCapitalize={autoCapitalize ?? 'none'}
-        autoCorrect={false}
-        style={{
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: radius.md,
-          paddingHorizontal: space.lg,
-          paddingVertical: space.md,
-          color: colors.text,
-          fontSize: 15,
-        }}
-      />
+    <View>
+      <Text style={[type.label, { color: colors.dim, marginBottom: space.sm }]}>{label}</Text>
+      <View
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 11,
+            paddingHorizontal: 15,
+            paddingVertical: 13,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.09)',
+            backgroundColor: colors.field,
+          },
+          focused && shared.focusRing,
+        ]}
+      >
+        <Icon name={icon} size={17} color={colors.nodeLine} />
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          placeholderTextColor={colors.faint}
+          cursorColor={colors.accent}
+          selectionColor="rgba(244,60,20,0.45)"
+          keyboardAppearance="dark"
+          secureTextEntry={secure}
+          keyboardType={keyboardType ?? 'default'}
+          autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
+          autoCorrect={false}
+          onSubmitEditing={onSubmit}
+          accessibilityLabel={label}
+          style={[type.input, { flex: 1, color: colors.heading, padding: 0 }]}
+        />
+        {trailing}
+      </View>
     </View>
   );
 }

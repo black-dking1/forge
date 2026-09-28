@@ -1,80 +1,107 @@
 /**
- * The dotted progress strip.
+ * The dotted progress bar — FORGE's signature element.
  *
- * This is FORGE's signature element — it appears on the home screen,
- * the project overview and the blueprint. It's also deliberately
- * cheap: a row of small filled Views. No SVG, no charting library,
- * no measuring text. That matters when you're building on a clock.
+ * It "charges": when it first appears, the dots light up one after
+ * another from the left, 15ms apart. When progress changes later
+ * (you tick a task), only the new dots sweep on, starting from where
+ * the bar already was. Untick, and they sweep off right-to-left.
+ *
+ * How many dots? As many as fit. The bar measures its own width
+ * (onLayout) and fits one dot every 10px — the mockup's spacing —
+ * so it looks the same on every phone size.
  */
 
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { colors, space } from '../theme';
+import Animated from 'react-native-reanimated';
+import { colors } from '../theme';
 
-type Props = {
-  /** 0-100 */
-  percent: number;
-  /** how many dots to draw. More dots = finer resolution. */
-  count?: number;
-  size?: number;
-  gap?: number;
-  /** colour of filled dots; defaults to the accent */
-  tint?: string;
-};
+const DOT = 5.2; //  dot diameter (the mockup's 2.6px radius)
+const STEP = 10; //  one dot every 10px
+const SWEEP = 15; // ms between neighbouring dots lighting up
 
-export function DotProgress({
+export function DotBar({
   percent,
-  count = 28,
-  size = 5,
-  gap = 3,
+  charge = true,
   tint = colors.accent,
-}: Props) {
-  // How many dots should be lit. Math.round rather than Math.floor so
-  // that 1 of 18 tasks done shows *something* rather than an empty bar
-  // that makes the app look broken.
+}: {
+  /** 0–100 */
+  percent: number;
+  /** play the left-to-right charge when it first appears */
+  charge?: boolean;
+  tint?: string;
+}) {
+  const [width, setWidth] = useState(0);
+
+  // "awake" flips on one frame after the bar knows its width. The
+  // dots are drawn unlit first, then lit — and the change between
+  // the two is what the transition animates.
+  const [awake, setAwake] = useState(!charge);
+  useEffect(() => {
+    if (awake || width === 0) return;
+    const frame = requestAnimationFrame(() => setAwake(true));
+    return () => cancelAnimationFrame(frame);
+  }, [awake, width]);
+
+  const count = width > 0 ? Math.max(1, Math.floor((width - DOT) / STEP) + 1) : 0;
   const safe = Math.max(0, Math.min(100, percent || 0));
-  const lit = Math.round((safe / 100) * count);
+  const lit = awake ? Math.round((safe / 100) * count) : 0;
+
+  // Remember where the last change started, so a sweep begins at
+  // the edge of the lit part instead of at the far left every time.
+  // (Setting state while rendering is React's own pattern for
+  // "react to a prop changing" — it re-renders once, straight away.)
+  const [sweep, setSweep] = useState({ lit: 0, from: 0 });
+  if (sweep.lit !== lit) setSweep({ lit, from: sweep.lit });
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <View
-          key={i}
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            marginRight: i === count - 1 ? 0 : gap,
-            backgroundColor: i < lit ? tint : colors.todo,
-          }}
-        />
-      ))}
+    <View
+      onLayout={(event) => setWidth(Math.floor(event.nativeEvent.layout.width))}
+      style={{ height: 9, flexDirection: 'row', alignItems: 'center' }}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(safe) }}
+    >
+      {Array.from({ length: count }, (_, i) => {
+        const on = i < lit;
+        const delay = on
+          ? Math.max(0, i - sweep.from) * SWEEP //          lighting: left to right
+          : Math.max(0, sweep.from - 1 - i) * SWEEP; //     dimming: right to left
+        return (
+          <Animated.View
+            key={i}
+            style={{
+              width: DOT,
+              height: DOT,
+              borderRadius: DOT / 2,
+              marginRight: STEP - DOT,
+              backgroundColor: on ? tint : colors.dotOff,
+              transitionProperty: 'backgroundColor',
+              transitionDuration: 30,
+              transitionDelay: delay,
+              transitionTimingFunction: 'linear',
+            }}
+          />
+        );
+      })}
     </View>
   );
 }
 
 /**
- * A squarer, chunkier variant used inside the blueprint, where each
- * dot stands for one actual task rather than a percentage.
+ * One small square per task, lit if it's done. Used in the blueprint
+ * — the "leaves" of the tree.
  */
-export function TaskDots({
-  total,
-  done,
-  size = 7,
-}: {
-  total: number;
-  done: number;
-  size?: number;
-}) {
+export function TaskDots({ statuses }: { statuses: boolean[] }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
-      {Array.from({ length: total }).map((_, i) => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
+      {statuses.map((done, i) => (
         <View
           key={i}
           style={{
-            width: size,
-            height: size,
-            borderRadius: 1.5,
-            backgroundColor: i < done ? colors.done : colors.todo,
+            width: 9,
+            height: 9,
+            borderRadius: 2,
+            backgroundColor: done ? colors.accent : colors.dotOff,
           }}
         />
       ))}

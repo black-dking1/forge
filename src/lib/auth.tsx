@@ -39,18 +39,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // and that gap is exactly why `loading` exists. Without it the app
     // shows the sign-in screen for a split second before realising the
     // user was already signed in, which looks broken.
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    //
+    // If the saved sign-in has expired, getSession() has to go to the
+    // internet to renew it. On a slow connection that can take ages or
+    // fail outright — and if we only stopped "loading" on success, the
+    // app would sit on the loading dots forever. So loading ends in
+    // every case: success, failure, or after 8 seconds at most.
+    let finished = false;
+    const finish = () => {
+      if (!finished) {
+        finished = true;
+        setLoading(false);
+      }
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session))
+      .catch((e) => console.warn('[FORGE] could not read saved session:', e))
+      .finally(finish);
+
+    const safety = setTimeout(() => {
+      console.warn('[FORGE] session check took over 8s — continuing without it');
+      finish();
+    }, 8000);
 
     // Then listen for changes: signing in, signing out, token refresh.
-    // This fires for the life of the app.
+    // This fires for the life of the app — including once at start-up
+    // with the saved session, which also counts as "done loading".
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      finish();
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      clearTimeout(safety);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   // Pull the display name out of the profiles table whenever the
@@ -76,6 +101,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [session?.user?.id]);
+
+  // Tell RevenueCat who this is, using the same id as Supabase.
+  // Without this, a purchase belongs to "this phone" instead of
+  // "this account" — so signing in on a new phone would lose Pro.
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Purchases = require('react-native-purchases').default;
+      Purchases.logIn(userId).catch(() => {});
+    } catch {
+      // no purchases in this runtime (Expo Go) — fine
+    }
   }, [session?.user?.id]);
 
   return (
@@ -116,4 +156,36 @@ export async function signUp(email: string, password: string, name: string) {
 
 export async function signOut() {
   await supabase.auth.signOut();
+  forgetPurchaser();
+}
+
+/** RevenueCat: stop linking purchases to the account that just left. */
+function forgetPurchaser() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Purchases = require('react-native-purchases').default;
+    Purchases.logOut().catch(() => {});
+  } catch {
+    // no purchases in this runtime — fine
+  }
+}
+
+/**
+ * Delete the account and everything in it.
+ *
+ * Calls delete_my_account() in the database (migration 03). That
+ * function can only ever delete the signed-in user's own row, and
+ * every table cascades from it: profile → builds → areas → tasks,
+ * plus templates. Then we clear the now-useless session from the
+ * phone ("local" — the server session is already gone with the user).
+ *
+ * A store subscription is NOT cancelled by this — Apple only lets
+ * the customer do that — which is why the confirm screen says so.
+ */
+export async function deleteAccount() {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) return { error: error.message };
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+  forgetPurchaser();
+  return { error: null };
 }

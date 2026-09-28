@@ -1,82 +1,62 @@
 /**
- * The circular dot gauge on the project overview.
+ * The ring gauge on the build overview.
  *
- * Built from plain Views placed with trigonometry — no SVG library.
- * That is deliberate: adding react-native-svg would mean new native
- * code, which means a whole new 20-minute EAS build before you could
- * see it. This renders with what is already installed.
+ * 64 spokes around a circle, each spoke three dots deep. Lit spokes
+ * are orange; the rest are faint. On open it fills clockwise while
+ * the percentage in the middle counts up with it — both driven by
+ * the same number, so they can never disagree.
  *
- * Each dot's position on the circle:
- *   angle = (i / count) * 2π,  rotated a quarter turn so dot 0 sits
- *                              at the top instead of the right
- *   x = centre + radius * cos(angle)
- *   y = centre + radius * sin(angle)
+ * Geometry is the mockup's own (a 260×260 canvas, radii 96/104/112),
+ * drawn as two SVG paths — one for lit dots, one for unlit — which
+ * is far cheaper than 192 separate views.
  */
 
-import { View, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { colors, type } from '../theme';
+import { useCountUp } from '../lib/use-count-up';
 
-type Props = {
-  percent: number;
-  size?: number;
-  dotCount?: number;
-  dotSize?: number;
-  label?: string;
-};
+const SPOKES = 64;
+const CENTRE = 130;
 
-export function DotRing({
-  percent,
-  size = 190,
-  dotCount = 60,
-  dotSize = 4,
-  label = 'COMPLETE',
-}: Props) {
+function dot(x: number, y: number, r: number) {
+  return `M${(x - r).toFixed(2)} ${y.toFixed(2)}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0`;
+}
+
+function ringPaths(lit: number) {
+  let on = '';
+  let off = '';
+  for (let i = 0; i < SPOKES; i++) {
+    const angle = ((-90 + (i / SPOKES) * 360) * Math.PI) / 180;
+    for (let k = 0; k < 3; k++) {
+      const radius = 96 + k * 8;
+      const x = CENTRE + Math.cos(angle) * radius;
+      const y = CENTRE + Math.sin(angle) * radius;
+      if (i < lit) on += dot(x, y, 2.6);
+      else off += dot(x, y, 2);
+    }
+  }
+  return { on, off };
+}
+
+export function DotRing({ percent, size = 196 }: { percent: number; size?: number }) {
   const safe = Math.max(0, Math.min(100, percent || 0));
-  const lit = Math.round((safe / 100) * dotCount);
-
-  const centre = size / 2;
-  const radius = centre - dotSize * 2;
+  const shown = useCountUp(safe);
+  const lit = Math.round((shown / 100) * SPOKES);
+  const paths = ringPaths(lit);
 
   return (
     <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-        alignSelf: 'center',
-      }}
+      style={{ width: size, height: size, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }}
+      accessibilityRole="progressbar"
+      accessibilityLabel={`${Math.round(safe)} percent complete`}
     >
-      {Array.from({ length: dotCount }).map((_, i) => {
-        const angle = (i / dotCount) * 2 * Math.PI - Math.PI / 2;
-        const x = centre + radius * Math.cos(angle) - dotSize / 2;
-        const y = centre + radius * Math.sin(angle) - dotSize / 2;
-
-        return (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: x,
-              top: y,
-              width: dotSize,
-              height: dotSize,
-              borderRadius: dotSize / 2,
-              backgroundColor: i < lit ? colors.accent : colors.todo,
-            }}
-          />
-        );
-      })}
-
-      <Text style={[type.numberBig, { color: colors.text }]}>{safe}%</Text>
-      <Text
-        style={[
-          type.labelSm,
-          { color: colors.textFaint, marginTop: 2 },
-        ]}
-      >
-        {label}
-      </Text>
+      <Svg width={size} height={size} viewBox="0 0 260 260" style={StyleSheet.absoluteFill}>
+        <Path d={paths.off} fill={colors.text} opacity={0.2} />
+        <Path d={paths.on} fill={colors.accent} />
+      </Svg>
+      <Text style={[type.hero, { color: colors.heading }]}>{Math.round(shown)}%</Text>
+      <Text style={[type.labelSm, { color: colors.label, marginTop: 6, letterSpacing: 1.6 }]}>COMPLETE</Text>
     </View>
   );
 }

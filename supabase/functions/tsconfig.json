@@ -1,0 +1,22 @@
+{
+  // Settings for the SERVER code in this folder (Supabase Edge
+  // Functions). It runs on Deno, not in the app, so VS Code needs
+  // different rules here than in src/. This file only affects how
+  // VS Code checks the code; Supabase ignores it.
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [],
+    // On Supabase, "npm:@supabase/supabase-js@2" is downloaded by Deno.
+    // Locally, point VS Code at the copy the app already installed.
+    "paths": {
+      "npm:@supabase/supabase-js@2": ["../../node_modules/@supabase/supabase-js"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

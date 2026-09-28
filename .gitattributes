@@ -1,0 +1,23 @@
+# Line endings: store and check out every text file with LF (Unix)
+# line endings, on every computer. Without this, Git on Windows warns
+# "LF will be replaced by CRLF" every time it touches a file.
+# LF is what Expo, Metro, EAS Build and every Mac/Linux tool expect,
+# and VS Code on Windows handles it fine.
+* text=auto eol=lf
+
+# Binary files: never touch these, whatever they look like.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.mp4 binary
+*.mov binary
+*.zip binary
+*.jks binary
+*.keystore binary

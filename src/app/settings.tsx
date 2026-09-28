@@ -1,133 +1,224 @@
 /**
- * Settings — account, plan, sign out.
+ * Settings — who you are, your plan, sign out.
  *
- * The plan row currently always reads FREE. Wiring it to the real
- * RevenueCat entitlement happens when the paywall goes in; doing it
- * now would mean a status that can't be changed from anywhere, which
- * is worse than one that's honestly still a stub.
+ * The plan card reads the real Pro status from RevenueCat every time
+ * the screen opens, so buying (or restoring) Pro shows up here
+ * straight away.
  */
 
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { BackHandler, ScrollView, Switch, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import Animated from 'react-native-reanimated';
+import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, radius, shared, space, type } from '../theme';
+import { colors, shared, space, type } from '../theme';
 import { useAuth, signOut } from '../lib/auth';
 import { countProjects } from '../lib/projects';
-import { BottomNav } from '../components/bottom-nav';
+import { checkPro, FREE_BUILD_LIMIT, getDevPreview, setDevPreview } from '../lib/pro';
+import { links } from '../lib/links';
+import { Icon } from '../components/icons';
+import { useNavSpace } from '../components/bottom-nav';
+import { GhostButton, Press, PrimaryButton, Screen, SectionLabel, Tag } from '../components/ui';
 
-const FREE_PROJECT_LIMIT = 3;
+const BLINK = { '0%': { opacity: 1 }, '49%': { opacity: 1 }, '50%': { opacity: 0 }, '100%': { opacity: 0 } };
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, displayName } = useAuth();
-  const [projectCount, setProjectCount] = useState(0);
+  const navSpace = useNavSpace();
+  const [count, setCount] = useState(0);
+  const [pro, setPro] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      countProjects().then(({ count }) => setProjectCount(count));
+      countProjects().then((result) => setCount(result.count));
+      checkPro().then(setPro);
+      getDevPreview().then(setPreview);
     }, [])
   );
 
+  // Settings is a tab, not a page stacked on Home — so the phone's
+  // back button goes to Home rather than closing the app.
+  useFocusEffect(
+    useCallback(() => {
+      const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.replace('/home');
+        return true;
+      });
+      return () => listener.remove();
+    }, [router])
+  );
+
+  const name = displayName || 'Builder';
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+
   return (
-    <SafeAreaView style={shared.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: space.xl }}>
-        <Text style={[type.title, { color: colors.text, marginBottom: space.xl }]}>
+    <Screen>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: space.xl, paddingTop: 22, paddingBottom: navSpace }}>
+        <Text style={[type.header, { color: colors.header }]} accessibilityRole="header">
           SETTINGS
         </Text>
 
-        <Text style={[type.labelSm, { color: colors.textFaint, marginBottom: space.md }]}>
-          ACCOUNT
-        </Text>
-        <View style={[shared.card, { marginBottom: space.xl }]}>
-          <Row label="NAME" value={displayName} />
-          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: space.md }} />
-          <Row label="EMAIL" value={session?.user?.email ?? '—'} />
-        </View>
-
-        <Text style={[type.labelSm, { color: colors.textFaint, marginBottom: space.md }]}>
-          PLAN
-        </Text>
-        <View style={[shared.card, { marginBottom: space.xl }]}>
+        {/* You — tap for account details and Delete account */}
+        <Press
+          onPress={() => router.push('/account')}
+          accessibilityRole="button"
+          accessibilityLabel="Account"
+          style={[shared.card, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: space.lg, borderRadius: 15, marginTop: space.xxl }]}
+        >
           <View
             style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: colors.node,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.09)',
               alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Text style={[type.screen, { color: colors.text }]}>FREE</Text>
-            <View
-              style={{
-                paddingHorizontal: space.md,
-                paddingVertical: space.xs,
-                borderRadius: radius.pill,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <Text style={[type.labelSm, { color: colors.textFaint }]}>
-                {projectCount}/{FREE_PROJECT_LIMIT} BUILDS
-              </Text>
-            </View>
+            <Text style={[type.cardPercent, { fontSize: 18, color: colors.accent }]}>{name.charAt(0).toUpperCase()}</Text>
           </View>
-          <Text style={[type.bodySm, { color: colors.textDim, marginTop: space.md }]}>
-            FORGE Pro removes the build limit, adds blueprint export, and lets you
-            save a build as a reusable template.
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.cardTitle, { fontSize: 16, color: colors.heading }]} numberOfLines={1}>
+              {name.toUpperCase()}
+            </Text>
+            <Text style={[type.bodySm, { color: colors.faint, marginTop: 4 }]} numberOfLines={1}>
+              {session?.user?.email ?? ''}
+            </Text>
+          </View>
+          <View style={{ transform: [{ rotate: '180deg' }] }}>
+            <Icon name="back" size={13} color={colors.label} />
+          </View>
+        </Press>
+
+        {/* Plan */}
+        <SectionLabel style={{ marginTop: 22 }}>SUBSCRIPTION</SectionLabel>
+        <View
+          style={{
+            marginTop: space.md,
+            padding: 18,
+            borderRadius: 15,
+            borderWidth: 1,
+            borderColor: 'rgba(244,60,20,0.3)',
+            experimental_backgroundImage: 'linear-gradient(150deg, #1D1512 0%, #120E0E 60%, #0D0C0C 100%)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={[type.tab, { fontSize: 15, letterSpacing: 1.8, color: colors.heading, flex: 1 }]}>
+              {pro ? 'FORGE PRO' : 'FREE PLAN'}
+            </Text>
+            <Tag label={pro ? 'ACTIVE' : `${count} / ${FREE_BUILD_LIMIT} BUILDS`} />
+          </View>
+          <Text style={[type.bodySm, { color: colors.dim, marginTop: 10 }]}>
+            {pro
+              ? 'Unlimited builds, blueprint export and templates are unlocked. Thank you for backing FORGE.'
+              : 'Pro unlocks unlimited builds, blueprint export and reusable templates.'}
           </Text>
-          <Pressable
-            onPress={() => router.push('/paywall')}
-            style={({ pressed }) => [
+          {!pro ? (
+            <PrimaryButton label="UPGRADE TO PRO" onPress={() => router.push('/paywall')} style={{ marginTop: 14, minHeight: 46 }} />
+          ) : null}
+        </View>
+
+        {/* Development only: pretend to be Pro so the Pro features can be
+            tried in Expo Go. __DEV__ is false in the store build, so this
+            whole block disappears there. */}
+        {__DEV__ ? (
+          <View
+            style={[
+              shared.card,
+              { flexDirection: 'row', alignItems: 'center', padding: space.lg, marginTop: space.md, borderStyle: 'dashed' },
+            ]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[type.label, { color: colors.dim }]}>DEV · PRO PREVIEW</Text>
+              <Text style={[type.bodySm, { color: colors.faint, marginTop: 4 }]}>Only in development. Never in the store app.</Text>
+            </View>
+            <Switch
+              value={preview}
+              onValueChange={async (on) => {
+                setPreview(on);
+                await setDevPreview(on);
+                checkPro().then(setPro);
+              }}
+              trackColor={{ true: colors.accent, false: colors.dotOff }}
+              thumbColor={colors.text}
+            />
+          </View>
+        ) : null}
+
+        <View style={{ marginTop: space.xl }}>
+          <GhostButton
+            label="SIGN OUT"
+            icon="signOut"
+            onPress={async () => {
+              await signOut();
+              router.replace('/sign-in');
+            }}
+          />
+        </View>
+
+        {/* About — an iOS-style grouped list */}
+        <SectionLabel style={{ marginTop: space.xl }}>ABOUT</SectionLabel>
+        <View style={[shared.card, { marginTop: space.md, paddingHorizontal: space.lg }]}>
+          {links.privacy ? (
+            <ListRow label="Privacy Policy" onPress={() => WebBrowser.openBrowserAsync(links.privacy)} />
+          ) : null}
+          <ListRow label="Terms of Use" onPress={() => WebBrowser.openBrowserAsync(links.terms)} />
+          <ListRow label="Version" value={version} last />
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: space.lg }}>
+          <Text style={[type.label, { fontFamily: type.greeting.fontFamily, fontSize: 12, color: colors.faint }]}>
+            FORGE {version} · BUILD ANYTHING{' '}
+          </Text>
+          <Animated.Text
+            style={[
+              type.label,
               {
-                borderWidth: 1,
-                borderColor: colors.accent,
-                borderRadius: radius.md,
-                paddingVertical: space.md,
-                alignItems: 'center',
-                marginTop: space.lg,
-                opacity: pressed ? 0.7 : 1,
+                fontSize: 12,
+                color: colors.accent,
+                animationName: BLINK,
+                animationDuration: 1000,
+                animationIterationCount: 'infinite',
+                animationTimingFunction: 'linear',
               },
             ]}
           >
-            <Text style={[type.label, { color: colors.accent }]}>SEE FORGE PRO</Text>
-          </Pressable>
+            _
+          </Animated.Text>
         </View>
-
-        <Pressable
-          onPress={async () => {
-            await signOut();
-            router.replace('/sign-in');
-          }}
-          style={({ pressed }) => [
-            shared.card,
-            { alignItems: 'center', opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[type.label, { color: colors.danger }]}>SIGN OUT</Text>
-        </Pressable>
-
-        <Text
-          style={[
-            type.labelSm,
-            { color: colors.textFaint, textAlign: 'center', marginTop: space.xl },
-          ]}
-        >
-          FORGE · HOUSE OF PRIME
-        </Text>
       </ScrollView>
-
-      <BottomNav active="settings" />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+/** One row of a grouped list: label on the left, value or › on the right. */
+function ListRow({ label, value, onPress, last = false }: { label: string; value?: string; onPress?: () => void; last?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-      <Text style={[type.labelSm, { color: colors.textFaint }]}>{label}</Text>
-      <Text style={[type.bodySm, { color: colors.text, flex: 1, textAlign: 'right' }]} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
+    <Press
+      onPress={onPress}
+      disabled={!onPress}
+      scaleTo={onPress ? 0.98 : 1}
+      accessibilityRole={onPress ? 'link' : 'text'}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        minHeight: 50,
+        borderBottomWidth: last ? 0 : 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+      }}
+    >
+      <Text style={[type.bodyBold, { color: colors.soft, flex: 1 }]}>{label}</Text>
+      {value ? <Text style={[type.body, { color: colors.faint }]}>{value}</Text> : null}
+      {onPress ? (
+        <View style={{ transform: [{ rotate: '180deg' }] }}>
+          <Icon name="back" size={12} color={colors.label} />
+        </View>
+      ) : null}
+    </Press>
   );
 }
