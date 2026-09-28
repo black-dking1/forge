@@ -11,7 +11,7 @@
  *   TASKS     — every task in one list; tap to tick
  *
  * The ⋮ menu (top right) holds share, save as template (both Pro),
- * rename, add area, archive and delete.
+ * rename, change icon, add area, archive and delete.
  */
 
 import { useCallback, useState } from 'react';
@@ -28,6 +28,7 @@ import {
   listAreas,
   listTasks,
   renameProject,
+  setProjectIcon,
   saveTemplate,
   setInventory,
   setNextStep,
@@ -54,11 +55,12 @@ import {
   type ToastData,
 } from '../../components/overlays';
 import { Icon } from '../../components/icons';
+import { IconForm } from '../../components/icon-picker';
 import { Header, LedLoader, Press, PrimaryButton, Screen, SectionLabel, Tag } from '../../components/ui';
 import { timeAgo } from '../../lib/time';
 
 type Tab = 'overview' | 'blueprint' | 'tasks';
-type SheetKind = 'menu' | 'rename' | 'add-area' | 'template' | 'inventory' | 'next-step' | 'delete' | null;
+type SheetKind = 'menu' | 'rename' | 'icon' | 'add-area' | 'template' | 'inventory' | 'next-step' | 'delete' | null;
 type Status = 'loading' | 'ready' | 'missing' | 'error';
 
 const TABS: { key: Tab; label: string }[] = [
@@ -246,6 +248,8 @@ export default function ProjectScreen() {
         title={
           sheet === 'rename'
             ? 'RENAME BUILD'
+            : sheet === 'icon'
+              ? 'BUILD ICON'
             : sheet === 'add-area'
               ? 'NEW AREA'
               : sheet === 'template'
@@ -284,6 +288,7 @@ export default function ProjectScreen() {
               }}
             />
             <SheetRow icon="pencil" label="Rename build" onPress={() => setSheet('rename')} />
+            <SheetRow icon="image" label="Change icon" onPress={() => setSheet('icon')} />
             <SheetRow icon="plus" label="Add an area" onPress={() => setSheet('add-area')} />
             <SheetRow
               icon="text"
@@ -335,6 +340,24 @@ export default function ProjectScreen() {
               if (error) {
                 haptic.reject();
                 setToast({ message: "Couldn't rename it. Try again." });
+                return;
+              }
+              haptic.confirm();
+              setSheet(null);
+              load();
+            }}
+          />
+        ) : null}
+
+        {sheet === 'icon' ? (
+          <IconForm
+            initial={project.icon}
+            onCancel={closeSheet}
+            onSave={async (icon) => {
+              const { error } = await setProjectIcon(project.id, icon);
+              if (error) {
+                haptic.reject();
+                setToast({ message: "Couldn't change the icon. Try again." });
                 return;
               }
               haptic.confirm();

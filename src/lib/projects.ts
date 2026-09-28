@@ -32,6 +32,8 @@ export type ProjectOverview = {
   next_step: string;
   /** When the next step was last changed, or null if none is set. */
   next_step_at: string | null;
+  /** The picture on the build's folder on Home (migration 07), e.g. 'hexapod'. */
+  icon: string;
 };
 
 /** The longest next step allowed. The database enforces the same limit. */
@@ -71,23 +73,37 @@ const message = (error: { message: string } | null) => error?.message ?? null;
 // BUILDS
 // ---------------------------------------------------------------
 
-// Next steps (migration 06).
+// Extras: the next step (migration 06) and the icon (migration 07).
 //
-// The project_overview view was made before the next_step columns
-// existed, and a view's list of columns is fixed when it's created.
-// So each build's step is read from the projects table in a second,
-// small query that runs AT THE SAME TIME as the first one, and the
-// two are joined up here.
+// The project_overview view was made before these columns existed,
+// and a view's list of columns is fixed when it's created. So they're
+// read from the projects table in a second, small query that runs AT
+// THE SAME TIME as the first one, and the two are joined up here.
 //
-// If that second query fails (for example, migration 06 hasn't been
-// run yet), the builds still load, just without their steps. A
-// missing extra shouldn't take the whole screen down.
+// If that second query fails, the builds still load, just without
+// their extras. A missing extra shouldn't take the whole screen down.
+// (If only migration 07 hasn't been run yet, the icon column is
+// missing, so we ask again without it and every build shows the bolt.)
 
-type NextStepRow = { id: string; next_step: string | null; next_step_at: string | null };
+type ExtrasRow = { id: string; next_step: string | null; next_step_at: string | null; icon?: string | null };
 
-const NEXT_STEP_COLUMNS = 'id, next_step, next_step_at';
+const EXTRA_COLUMNS = 'id, next_step, next_step_at, icon';
+const EXTRA_COLUMNS_WITHOUT_ICON = 'id, next_step, next_step_at';
 
-function withNextSteps(projects: ProjectOverview[], rows: NextStepRow[] | null): ProjectOverview[] {
+/** The icon a build gets when none has been picked. Matches migration 07's default. */
+export const DEFAULT_ICON = 'bolt';
+
+async function readExtras(onlyId?: string): Promise<ExtrasRow[] | null> {
+  const ask = (columns: string) => {
+    const query = supabase.from('projects').select(columns);
+    return onlyId ? query.eq('id', onlyId) : query;
+  };
+  let result = await ask(EXTRA_COLUMNS);
+  if (result.error) result = await ask(EXTRA_COLUMNS_WITHOUT_ICON);
+  return result.error ? null : (result.data as unknown as ExtrasRow[]);
+}
+
+function withExtras(projects: ProjectOverview[], rows: ExtrasRow[] | null): ProjectOverview[] {
   const byId = new Map((rows ?? []).map((row) => [row.id, row]));
   return projects.map((project) => {
     const row = byId.get(project.id);
@@ -95,30 +111,37 @@ function withNextSteps(projects: ProjectOverview[], rows: NextStepRow[] | null):
       ...project,
       next_step: (row?.next_step ?? '').trim(),
       next_step_at: row?.next_step_at ?? null,
+      icon: row?.icon || DEFAULT_ICON,
     };
   });
 }
 
 /** Every build — active and archived — newest activity first. */
 export async function listProjects() {
-  const [overview, steps] = await Promise.all([
+  const [overview, extras] = await Promise.all([
     supabase.from('project_overview').select('*').order('updated_at', { ascending: false }),
-    supabase.from('projects').select(NEXT_STEP_COLUMNS),
+    readExtras(),
   ]);
 
-  const projects = withNextSteps((overview.data ?? []) as ProjectOverview[], steps.data as NextStepRow[] | null);
+  const projects = withExtras((overview.data ?? []) as ProjectOverview[], extras);
   return { projects, error: message(overview.error) };
 }
 
 export async function getProject(id: string) {
-  const [overview, step] = await Promise.all([
+  const [overview, extras] = await Promise.all([
     supabase.from('project_overview').select('*').eq('id', id).maybeSingle(),
-    supabase.from('projects').select(NEXT_STEP_COLUMNS).eq('id', id).maybeSingle(),
+    readExtras(id),
   ]);
 
   const found = (overview.data as ProjectOverview | null) ?? null;
-  const project = found ? withNextSteps([found], step.data ? [step.data as NextStepRow] : null)[0] : null;
+  const project = found ? withExtras([found], extras)[0] : null;
   return { project, error: message(overview.error) };
+}
+
+/** Change the picture on a build's folder. */
+export async function setProjectIcon(id: string, icon: string) {
+  const { error } = await supabase.from('projects').update({ icon }).eq('id', id);
+  return { error: message(error) };
 }
 
 /**
@@ -139,15 +162,21 @@ export async function setNextStep(id: string, text: string) {
  * call, all or nothing. This is the create_project function in your
  * schema; doing it as separate inserts could leave a half-made build
  * if the signal drops halfway.
+ *
+ * The icon is saved straight after, as a small second step. If that
+ * one step fails the build is still made, just with the bolt, and you
+ * can change it from the build's ⋮ menu.
  */
-export async function createProject(name: string, goal: string, areaNames: string[]) {
+export async function createProject(name: string, goal: string, areaNames: string[], icon?: string) {
   const { data, error } = await supabase.rpc('create_project', {
     new_name: name.trim(),
     new_goal: goal.trim(),
     area_names: areaNames,
   });
 
-  return { projectId: (data as string | null) ?? null, error: message(error) };
+  const projectId = (data as string | null) ?? null;
+  if (projectId && icon && icon !== DEFAULT_ICON) await setProjectIcon(projectId, icon);
+  return { projectId, error: message(error) };
 }
 
 export async function renameProject(id: string, name: string) {
@@ -333,6 +362,68 @@ export async function restoreTask(task: Task) {
 }
 
 // ---------------------------------------------------------------
+// SEARCH (the search bar on Home)
+// ---------------------------------------------------------------
+//
+// Builds are matched on the phone, from the list Home already has.
+// Areas and tasks are matched here, by the database, with ilike —
+// "contains these letters, ignoring capitals". Two small queries that
+// run at the same time. Like everything else in this file, the
+// security rules mean each person only ever searches their own builds.
+
+export type AreaHit = { id: string; name: string; project_id: string; total_tasks: number };
+export type TaskHit = {
+  id: string;
+  title: string;
+  status: 'todo' | 'done';
+  area_id: string;
+  project_id: string;
+  area_name: string;
+};
+
+/**
+ * Turns what was typed into a safe "contains" pattern. %, _ and \ mean
+ * something special to ilike, so they're escaped to mean themselves.
+ * The database's own search helpers also treat * as a wildcard, so it
+ * is dropped.
+ */
+function containsPattern(text: string) {
+  const escaped = text.replace(/\*/g, '').replace(/[\\%_]/g, (c) => `\\${c}`);
+  return `%${escaped}%`;
+}
+
+export async function searchAreasAndTasks(text: string) {
+  const pattern = containsPattern(text.trim());
+  const [areas, tasks] = await Promise.all([
+    // area_progress (not areas) so each hit can say how many tasks it holds.
+    supabase
+      .from('area_progress')
+      .select('id:area_id, name, project_id, total_tasks')
+      .ilike('name', pattern)
+      .order('name')
+      .limit(20),
+    supabase
+      .from('tasks')
+      // "area:areas(name)" pulls each task's area name along with it,
+      // following the link from tasks.area_id to the areas table.
+      .select('id, title, status, area_id, project_id, area:areas(name)')
+      .ilike('title', pattern)
+      .order('status', { ascending: false }) // 'todo' before 'done'
+      .limit(40),
+  ]);
+
+  type TaskRow = Omit<TaskHit, 'area_name'> & { area: { name: string } | null };
+  return {
+    areas: (areas.data ?? []) as AreaHit[],
+    tasks: ((tasks.data ?? []) as unknown as TaskRow[]).map(({ area, ...task }) => ({
+      ...task,
+      area_name: area?.name ?? '',
+    })),
+    error: message(areas.error) ?? message(tasks.error),
+  };
+}
+
+// ---------------------------------------------------------------
 // TEMPLATES (Pro)
 // ---------------------------------------------------------------
 //
@@ -396,12 +487,19 @@ export async function deleteTemplate(id: string) {
  * Create a build from a template: its areas AND its tasks, in one
  * transaction. This is create_project_from_structure in migration 03.
  */
-export async function createProjectFromTemplate(name: string, goal: string, structure: TemplateStructure) {
+export async function createProjectFromTemplate(
+  name: string,
+  goal: string,
+  structure: TemplateStructure,
+  icon?: string
+) {
   const { data, error } = await supabase.rpc('create_project_from_structure', {
     new_name: name.trim(),
     new_goal: goal.trim(),
     structure,
   });
 
-  return { projectId: (data as string | null) ?? null, error: message(error) };
+  const projectId = (data as string | null) ?? null;
+  if (projectId && icon && icon !== DEFAULT_ICON) await setProjectIcon(projectId, icon);
+  return { projectId, error: message(error) };
 }

@@ -31,12 +31,15 @@ export const colors = {
   menu: '#16191C', //     pop-up menus
   node: '#1B1E21', //     the root of the blueprint
   pill: '#1C1F22', //     the selected tab
+  folder: '#111315', //   the build folders on Home
 
   // Hairlines.
   line: 'rgba(255,255,255,0.05)',
   lineMid: 'rgba(255,255,255,0.08)',
   lineDashed: 'rgba(255,255,255,0.14)',
   lineStrong: 'rgba(255,255,255,0.18)',
+  folderLine: 'rgba(242,239,231,0.14)', // the outline of a build folder and the search bar
+  tileLine: 'rgba(242,239,231,0.1)', //    an unpicked tile in the icon picker
 
   // The one accent. Action, progress, "this is live".
   accent: '#F43C14',
@@ -47,6 +50,9 @@ export const colors = {
   accentFaint: 'rgba(244,60,20,0.05)',
   accentLine: 'rgba(244,60,20,0.5)',
   accentFocus: 'rgba(244,60,20,0.75)',
+  accentPicked: 'rgba(244,60,20,0.7)', //  the outline of a picked chip or icon
+  iconTile: 'rgba(244,60,20,0.07)', //     behind the icon on a build folder
+  iconTileLine: 'rgba(244,60,20,0.45)',
   chipText: '#F7674A',
 
   // Text, brightest to faintest. All pass 4.5:1 on the background.

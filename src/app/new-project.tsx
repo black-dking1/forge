@@ -1,7 +1,7 @@
 /**
  * New build.
  *
- * Name, goal, pick your areas, BUILD BLUEPRINT. On success you land
+ * Name, icon, goal, pick your areas, BUILD BLUEPRINT. On success you land
  * straight on the new build's BLUEPRINT tab and watch it assemble —
  * the payoff for filling in the form.
  *
@@ -15,6 +15,10 @@
  *                  tasks specific to THIS build (see lib/ai.ts). Default.
  *   STARTER AREAS  pick from six common areas; fixed starter tasks.
  *   a template     (Pro) copy a plan you saved from an earlier build.
+ *
+ * ICON — the picture on the build's folder on Home. Until you tap one
+ * yourself, it follows the name: type "FPV drone" and the plane lights
+ * up. Once you pick, your pick stays.
  */
 
 import { useCallback, useState } from 'react';
@@ -32,10 +36,12 @@ import {
   describeStructure,
   listTemplates,
   setInventory,
+  DEFAULT_ICON,
   type Template,
 } from '../lib/projects';
 import { checkPro, FREE_BUILD_LIMIT, usePro } from '../lib/pro';
 import { ConfirmForm, Sheet, Toast, type ToastData } from '../components/overlays';
+import { guessIcon, IconPicker } from '../components/icon-picker';
 import { Header, LedLoader, LinkButton, Press, PrimaryButton, Screen } from '../components/ui';
 import { aiMessages, draftBuild, ideasFromParts, type BuildIdea } from '../lib/ai';
 import type { TemplateStructure } from '../lib/projects';
@@ -47,6 +53,8 @@ const STARTER_AREAS = ['Hardware', 'Software', 'Power', 'Testing', 'Research', '
 export default function NewProjectScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
+  const [icon, setIcon] = useState<string>(DEFAULT_ICON);
+  const [iconPicked, setIconPicked] = useState(false); // true once they've tapped an icon themselves
   const [goal, setGoal] = useState('');
   const [have, setHave] = useState(''); // parts/tools already owned (AI plan only)
   const [picked, setPicked] = useState<string[]>(['Hardware', 'Software', 'Power', 'Testing']);
@@ -127,6 +135,7 @@ export default function NewProjectScreen() {
   function useIdea(idea: BuildIdea) {
     haptic.select();
     setName(idea.name);
+    if (!iconPicked) setIcon(guessIcon(idea.name) ?? DEFAULT_ICON);
     setGoal(idea.blurb);
     setIdeas(null);
     setDraft(null);
@@ -169,6 +178,7 @@ export default function NewProjectScreen() {
           used: String(count),
           name: name.trim(),
           goal: goal.trim(),
+          icon,
           areas: ordered.join('|'),
           structure: structure ? JSON.stringify(structure) : '',
         },
@@ -177,8 +187,8 @@ export default function NewProjectScreen() {
     }
 
     const { projectId, error: createError } = structure
-      ? await createProjectFromTemplate(name, goal, structure)
-      : await createProject(name, goal, ordered);
+      ? await createProjectFromTemplate(name, goal, structure, icon)
+      : await createProject(name, goal, ordered, icon);
     setBusy(false);
 
     if (createError || !projectId) {
@@ -219,6 +229,7 @@ export default function NewProjectScreen() {
               value={name}
               onChangeText={(t) => {
                 setName(t);
+                if (!iconPicked) setIcon(guessIcon(t) ?? DEFAULT_ICON);
                 if (draft) setDraft(null); // the plan no longer matches — draft again
               }}
               onFocus={() => setFocused('name')}
@@ -234,7 +245,16 @@ export default function NewProjectScreen() {
             />
           </View>
 
-          <Text style={[type.label, { color: colors.dim, marginTop: 14, marginBottom: space.sm }]}>GOAL</Text>
+          <Text style={[type.label, { color: colors.dim, marginTop: 18, marginBottom: space.sm }]}>ICON</Text>
+          <IconPicker
+            value={icon}
+            onChange={(next) => {
+              setIcon(next);
+              setIconPicked(true);
+            }}
+          />
+
+          <Text style={[type.label, { color: colors.dim, marginTop: 18, marginBottom: space.sm }]}>GOAL</Text>
           <View style={[field, focused === 'goal' && shared.focusRing]}>
             <TextInput
               value={goal}

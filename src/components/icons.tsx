@@ -51,6 +51,16 @@ const ICONS = {
     ),
   },
   text: { box: [22, 20], stroke: 1.9, draw: () => <Path d="M3 4h16M3 9h16M3 14h10" /> },
+  search: {
+    box: [24, 24],
+    stroke: 1.9,
+    draw: () => (
+      <>
+        <Circle cx={10.5} cy={10.5} r={6.5} />
+        <Path d="M15.5 15.5 21 21" />
+      </>
+    ),
+  },
   mail: {
     box: [24, 24],
     stroke: 1.9,
@@ -113,6 +123,7 @@ const SYMBOLS: Record<IconName, { name: SymbolViewProps['name'] & string; scale?
   template: { name: 'square.stack.3d.up' },
   image: { name: 'photo' },
   text: { name: 'text.alignleft' },
+  search: { name: 'magnifyingglass', scale: 0.9 },
   mail: { name: 'envelope' },
   lock: { name: 'lock' },
   user: { name: 'person' },
@@ -180,7 +191,7 @@ function StrokeGroup({
 }
 
 // ---------------------------------------------------------------
-// DOT-MATRIX ICONS — the bottom nav
+// DOT-MATRIX ICONS — the bottom nav, and the icon on each build
 // ---------------------------------------------------------------
 //
 // Drawn as a grid of dots, one '#' per lit dot, so they belong to
@@ -205,6 +216,52 @@ function dotPath(rows: readonly string[]) {
     });
   });
   return path;
+}
+
+// ---------------------------------------------------------------
+// BUILD ICONS — the picture on each build's folder on Home
+// ---------------------------------------------------------------
+//
+// Straight from the Home v3 mockup. The database stores the NAME
+// ('hexapod'), and migration 07 only checks that it looks like a name,
+// so adding a ninth icon here needs no database change. Anything this
+// list doesn't know is drawn as the bolt.
+
+const BUILD_GRIDS = {
+  hexapod: ['.#.....#.', '..#...#..', '...###...', '#.#####.#', '.#######.', '#.#####.#', '.#######.', '#.#####.#', '...#.#...'],
+  sun: ['....#....', '.#.....#.', '...###...', '..#####..', '#.#####.#', '..#####..', '...###...', '.#.....#.', '....#....'],
+  gear: ['..#.#.#..', '.#######.', '##.....##', '.#.###.#.', '##.#.#.##', '.#.###.#.', '##.....##', '.#######.', '..#.#.#..'],
+  bolt: ['.....##..', '....##...', '...##....', '..#####..', '....##...', '...##....', '..##.....', '.##......', '.........'],
+  wave: ['.........', '.##......', '#..#.....', '#..#...#.', '....#..#.', '....#.#..', '.....#...', '.........', '#########'],
+  cloud: ['.........', '...###...', '..#...#..', '.#.....##', '#.......#', '#.......#', '.#######.', '..#.#.#..', '.#.#.#...'],
+  plane: ['....#....', '....#....', '...###...', '.#######.', '#########', '....#....', '....#....', '...###...', '..#####..'],
+  heart: ['.##...##.', '#########', '#########', '#########', '.#######.', '..#####..', '...###...', '....#....', '.........'],
+} as const;
+
+export type BuildIconName = keyof typeof BUILD_GRIDS;
+
+/** Every build icon, in the order the picker shows them. */
+export const BUILD_ICONS = Object.keys(BUILD_GRIDS) as BuildIconName[];
+
+// Each icon's path is worked out once, not every time a card draws.
+const BUILD_PATHS = Object.fromEntries(
+  BUILD_ICONS.map((name) => [name, dotPath(BUILD_GRIDS[name])])
+) as Record<BuildIconName, string>;
+
+export function isBuildIcon(name: string): name is BuildIconName {
+  // hasOwn, not "in": "in" would also say yes to built-in names like
+  // "constructor", which pass the database's letters-only rule.
+  return Object.prototype.hasOwnProperty.call(BUILD_GRIDS, name);
+}
+
+/** A build's icon. `name` comes from the database, so anything unknown becomes the bolt. */
+export function BuildIcon({ name, size = 22, color = colors.accent }: { name: string; size?: number; color?: string }) {
+  const known = isBuildIcon(name) ? name : 'bolt';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 9 9" style={{ overflow: 'visible' }}>
+      <Path d={BUILD_PATHS[known]} fill={color} />
+    </Svg>
+  );
 }
 
 export function DotIcon({

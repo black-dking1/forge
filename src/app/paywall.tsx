@@ -63,6 +63,7 @@ export default function PaywallScreen() {
     used?: string;
     name?: string;
     goal?: string;
+    icon?: string;
     areas?: string;
     structure?: string;
   }>();
@@ -142,8 +143,8 @@ export default function PaywallScreen() {
     }
     const areas = (params.areas ?? '').split('|').filter(Boolean);
     const { projectId, error } = structure
-      ? await createProjectFromTemplate(params.name ?? '', params.goal ?? '', structure)
-      : await createProject(params.name ?? '', params.goal ?? '', areas);
+      ? await createProjectFromTemplate(params.name ?? '', params.goal ?? '', structure, params.icon)
+      : await createProject(params.name ?? '', params.goal ?? '', areas, params.icon);
     if (error || !projectId) {
       setMessage('Pro is active. Go back and press BUILD BLUEPRINT again.');
       return;
