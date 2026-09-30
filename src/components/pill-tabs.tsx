@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { colors, type } from '../theme';
+import { colors, ink, type } from '../theme';
 import { curve } from '../lib/motion';
 import { haptic } from '../lib/haptics';
 
@@ -42,7 +42,7 @@ export function PillTabs<T extends string>({
         borderRadius: 999,
         backgroundColor: colors.sunk,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.07)',
+        borderColor: ink(0.07),
       }}
     >
       {width > 0 ? (
@@ -55,7 +55,7 @@ export function PillTabs<T extends string>({
             width: segment,
             borderRadius: 999,
             backgroundColor: colors.pill,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
+            boxShadow: `inset 0 1px 0 ${ink(0.07)}`,
             transform: [{ translateX: index * (segment + PAD) }],
             transitionProperty: 'transform',
             transitionDuration: 250,

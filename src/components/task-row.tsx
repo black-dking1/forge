@@ -24,16 +24,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-import { colors, radius, type } from '../theme';
+import { colors, radius, tint, type } from '../theme';
 import { ease } from '../lib/motion';
 import { haptic } from '../lib/haptics';
 import { Press } from './ui';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-// Plain strings, so the animation code can read them on the UI thread.
-const TEXT_TODO = colors.soft;
-const TEXT_DONE = colors.off;
 
 export function TaskRow({
   title,
@@ -50,6 +47,11 @@ export function TaskRow({
   onLongPress?: () => void;
 }) {
   const progress = useSharedValue(done ? 1 : 0);
+
+  // Plain strings, read when the row draws (so they follow the theme),
+  // which the animation code can then use on the UI thread.
+  const TEXT_TODO = colors.soft;
+  const TEXT_DONE = colors.off;
 
   useEffect(() => {
     progress.set(withTiming(done ? 1 : 0, { duration: 200, easing: ease.standard }));
@@ -139,7 +141,7 @@ export function TaskRow({
               bottom: -1,
               borderRadius: radius.sm,
               backgroundColor: colors.accent,
-              boxShadow: '0 0 10px rgba(244,60,20,0.35)',
+              boxShadow: `0 0 10px ${tint(0.35)}`,
             },
             fill,
           ]}
@@ -148,7 +150,7 @@ export function TaskRow({
           <AnimatedPath
             d="M3 8.4 L6.4 11.6 L13 4.8"
             fill="none"
-            stroke="#FFFFFF"
+            stroke={colors.onAccent}
             strokeWidth={2.6}
             strokeLinecap="round"
             strokeLinejoin="round"

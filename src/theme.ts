@@ -16,10 +16,27 @@ import { Platform } from 'react-native';
 export const ios = Platform.OS === 'ios';
 
 // ---------------------------------------------------------------
-// COLOURS
+// COLOURS — two palettes, dark (the original) and light
 // ---------------------------------------------------------------
+//
+// HOW THE LIGHT THEME WORKS
+// The Home v4 design makes light mode by putting a colour filter over
+// the dark screen: invert(1) hue-rotate(180deg) saturate(1.9)
+// contrast(1.06). Inverting flips dark to light; turning the hue half
+// way round brings the orange back to orange. Every light colour below
+// is exactly what that filter turns the matching dark colour into
+// (measured in a browser), so light mode matches the design.
+//
+// It's done as real colours rather than a filter on the live screen
+// because a filter would blur text and icons, costs the phone extra
+// work every frame, and doesn't exist on iPhone.
+//
+// `colors` is ONE object that every screen reads from. Switching theme
+// swaps its values in place (applyTheme, below) and the app redraws.
+// That's why nothing outside this file should copy a colour into a
+// constant when the app starts: it would keep the old theme's value.
 
-export const colors = {
+const dark = {
   // Backgrounds, darkest to lightest.
   bg: '#0B0C0E', //       the app background
   sunk: '#0A0B0D', //     inside the pill tabs and the blueprint panel
@@ -76,7 +93,114 @@ export const colors = {
 
   danger: '#FF5A45', //     destructive text
   dangerFill: '#E0301E', // the swipe-to-delete panel
-} as const;
+
+  // Overlays and small pieces.
+  scrim: 'rgba(4,5,6,0.68)', //   behind a sheet
+  shadow: 'rgba(0,0,0,0.5)', //   drop shadows
+  handle: '#3A3A38', //           the grab bar on a sheet
+  skeletonCard: '#0E1012', //     a card that's still loading
+};
+
+export type Palette = typeof dark;
+
+const light: Palette = {
+  bg: '#F8FAFE',
+  sunk: '#F9FBFF',
+  surface: '#F1F5FA',
+  field: '#F0F4F8',
+  sheet: '#EEF2F8',
+  raised: '#EBF1F7',
+  nav: '#E8EFF5',
+  menu: '#E7EDF3',
+  node: '#E2E8EE',
+  pill: '#E1E7ED',
+  folder: '#EFF3F7',
+
+  line: 'rgba(0,0,0,0.05)',
+  lineMid: 'rgba(0,0,0,0.08)',
+  lineDashed: 'rgba(0,0,0,0.14)',
+  lineStrong: 'rgba(0,0,0,0.18)',
+  folderLine: 'rgba(15,9,0,0.14)',
+  tileLine: 'rgba(15,9,0,0.1)',
+
+  accent: '#FF6211',
+  accentTop: '#FF5206',
+  accentBottom: '#FF7328',
+  onAccent: '#170700', // the filter turns white-on-orange into dark-on-orange
+  accentSoft: 'rgba(255,98,17,0.10)',
+  accentFaint: 'rgba(255,98,17,0.05)',
+  accentLine: 'rgba(255,98,17,0.5)',
+  accentFocus: 'rgba(255,98,17,0.75)',
+  accentPicked: 'rgba(255,98,17,0.7)',
+  iconTile: 'rgba(255,98,17,0.07)',
+  iconTileLine: 'rgba(255,98,17,0.45)',
+  chipText: '#E4400A',
+
+  white: '#080000',
+  heading: '#0F0900',
+  text: '#181201',
+  soft: '#271F0D',
+  header: '#383222',
+  dim: '#6A6658',
+  faint: '#777367',
+  label: '#7E7A6E',
+  off: '#878379',
+
+  dotOff: '#C9C5BF',
+  spine: '#9F998F',
+  nodeLine: '#7B776A',
+  skeleton: '#DBD9D5',
+  skeletonDim: '#E2E2DE',
+  gridDot: '#E0E0DC',
+
+  danger: '#E5341F',
+  dangerFill: '#E5341F', // kept strong so white text on it stays readable
+
+  scrim: 'rgba(20,22,26,0.32)',
+  shadow: 'rgba(20,24,32,0.14)',
+  handle: '#CACAC6',
+  skeletonCard: '#F3F7FB',
+};
+
+export type ThemeMode = 'dark' | 'light';
+
+/** Which theme is showing right now. Read it; change it with applyTheme. */
+export const theme = { mode: 'dark' as ThemeMode };
+
+/** Every colour in the app. The values change when the theme does. */
+export const colors: Palette = { ...dark };
+
+/** Swap every colour to the other palette. The app then redraws (lib/appearance.tsx). */
+export function applyTheme(mode: ThemeMode) {
+  theme.mode = mode;
+  Object.assign(colors, mode === 'light' ? light : dark);
+}
+
+/** White lines and washes in dark mode are black ones in light mode. `a` = opacity. */
+export function ink(a: number) {
+  return theme.mode === 'light' ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a})`;
+}
+
+/** The accent colour at opacity `a`, for tints, glows and outlines. */
+export function tint(a: number) {
+  return theme.mode === 'light' ? `rgba(255,98,17,${a})` : `rgba(244,60,20,${a})`;
+}
+
+/** A drop shadow's colour. Light mode's shadows are much softer, as on paper. */
+export function shade(a: number) {
+  return theme.mode === 'light' ? `rgba(20,24,32,${Math.round(a * 30) / 100})` : `rgba(0,0,0,${a})`;
+}
+
+/** Any theme colour ('#RRGGBB') at opacity `a`, e.g. withAlpha(colors.bg, 0.9). */
+export function withAlpha(hex: string, a: number) {
+  const n = parseInt(hex.slice(1, 7), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** For text inputs: the keyboard follows the theme on iPhone. */
+export function keyboard() {
+  return theme.mode === 'light' ? ('light' as const) : ('dark' as const);
+}
 
 // ---------------------------------------------------------------
 // THE WARM GLOW
@@ -92,6 +216,12 @@ export const colors = {
 // Subtle on purpose — most people will feel it rather than see it.
 
 export function glowFor(hour: number = new Date().getHours()) {
+  // Light mode: the design's glow is a soft warm shade in the corner
+  // (measured from the Home v4 design) rather than a warm light.
+  if (theme.mode === 'light') {
+    return 'radial-gradient(140% 42% at 18% -8%, rgba(150,80,30,0.11) 0%, rgba(150,80,30,0.045) 38%, transparent 70%)';
+  }
+
   let inner = 'rgba(243,201,157,0.17)'; // afternoon — the mockup value
   let outer = 'rgba(201,161,131,0.07)';
 
@@ -229,38 +359,50 @@ export const radius = {
 // SHARED PIECES
 // ---------------------------------------------------------------
 
+// Getters, not plain values: each one is worked out when a screen
+// draws, so it always uses the current theme's colours.
 export const shared = {
-  screen: {
-    flex: 1,
-    backgroundColor: colors.bg,
+  get screen() {
+    return { flex: 1, backgroundColor: colors.bg } as const;
   },
   // A standard card: the task rows, area rows, stat boxes.
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderCurve: 'continuous', // iPhone-style smooth corners (ignored on Android)
-    borderWidth: 1,
-    borderColor: colors.line,
+  get card() {
+    return {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderCurve: 'continuous', // iPhone-style smooth corners (ignored on Android)
+      borderWidth: 1,
+      borderColor: colors.line,
+    } as const;
   },
-  // The bigger, lit-from-above card used for builds on the home screen.
-  heroCard: {
-    borderRadius: radius.lg,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.055)',
-    experimental_backgroundImage: 'linear-gradient(150deg, #17191B 0%, #0E1012 60%, #0B0C0E 100%)',
-    boxShadow: '0 14px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.03)',
+  // The bigger, lit-from-above card used for builds.
+  get heroCard() {
+    const lit = theme.mode === 'light';
+    return {
+      borderRadius: radius.lg,
+      borderCurve: 'continuous',
+      borderWidth: 1,
+      borderColor: ink(0.055),
+      experimental_backgroundImage: lit
+        ? 'linear-gradient(150deg, #EAF0F6 0%, #F3F7FB 60%, #F8FAFE 100%)'
+        : 'linear-gradient(150deg, #17191B 0%, #0E1012 60%, #0B0C0E 100%)',
+      boxShadow: lit
+        ? '0 14px 26px rgba(20,24,32,0.08), inset 0 1px 0 rgba(255,255,255,0.6)'
+        : '0 14px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.03)',
+    } as const;
   },
   // The orange primary button.
-  primary: {
-    borderRadius: radius.md,
-    borderCurve: 'continuous',
-    experimental_backgroundImage: `linear-gradient(180deg, ${colors.accentTop} 0%, ${colors.accentBottom} 100%)`,
-    boxShadow: '0 10px 26px rgba(244,60,20,0.3), inset 0 1px 0 rgba(255,255,255,0.22)',
+  get primary() {
+    return {
+      borderRadius: radius.md,
+      borderCurve: 'continuous',
+      backgroundColor: colors.accent, // under the gradient, in case it can't draw
+      experimental_backgroundImage: `linear-gradient(180deg, ${colors.accentTop} 0%, ${colors.accentBottom} 100%)`,
+      boxShadow: `0 10px 26px ${tint(0.3)}, inset 0 1px 0 rgba(255,255,255,0.22)`,
+    } as const;
   },
   // The glow ring around a focused input.
-  focusRing: {
-    borderColor: colors.accentFocus,
-    boxShadow: '0 0 0 3px rgba(244,60,20,0.16)',
+  get focusRing() {
+    return { borderColor: colors.accentFocus, boxShadow: `0 0 0 3px ${tint(0.16)}` } as const;
   },
-} as const;
+};

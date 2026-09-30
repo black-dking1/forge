@@ -53,6 +53,31 @@ export async function draftBuild(name: string, goal: string, have = '') {
   };
 }
 
+/** What the AI understood from a spoken description. */
+export type Heard = { name: string; goal: string; have: string };
+
+/**
+ * Voice input: "Hexapod. 18 servos, an Arduino Mega and two LiPo packs."
+ * One AI call works out the name, the goal and the parts you already
+ * have from what you said, AND drafts the plan around them. Nothing is
+ * saved — it fills in the New Build form for you to check.
+ */
+export async function draftFromSpeech(said: string) {
+  const { data, error } = await supabase.functions.invoke('ai', {
+    body: { mode: 'build', said: said.trim() },
+  });
+  if (error) return { structure: null, heard: null, left: null, error: await explain(error) };
+  const heard = (data?.heard ?? null) as Heard | null;
+  const structure = (data?.structure ?? null) as TemplateStructure | null;
+  return {
+    structure,
+    heard,
+    left: (data?.left ?? null) as number | null,
+    // No "heard" back means the AI function hasn't been updated yet.
+    error: structure && heard ? null : ('failed' as AiError),
+  };
+}
+
 /** One thing you could build with the parts you have. */
 export type BuildIdea = { name: string; blurb: string };
 

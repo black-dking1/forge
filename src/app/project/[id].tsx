@@ -17,7 +17,7 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, shared, space, type } from '../../theme';
+import { colors, shared, space, tint, type } from '../../theme';
 import { haptic } from '../../lib/haptics';
 import { usePro } from '../../lib/pro';
 import {
@@ -523,7 +523,7 @@ function Overview({
                 style={[shared.card, { paddingVertical: 14, paddingHorizontal: space.lg }]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: full ? colors.accent : '#4A4845' }} />
+                  <View style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: full ? colors.accent : colors.dotOff }} />
                   <Text style={[type.area, { color: colors.soft, flex: 1 }]} numberOfLines={1}>
                     {area.name.toUpperCase()}
                   </Text>
@@ -594,7 +594,7 @@ function NextStep({ project, onEdit }: { project: ProjectOverview; onEdit: () =>
             height: 7,
             borderRadius: 3.5,
             backgroundColor: colors.accent,
-            boxShadow: '0 0 8px rgba(244,60,20,0.8)',
+            boxShadow: `0 0 8px ${tint(0.8)}`,
           }}
         />
         <Text style={[type.labelSm, { color: colors.accent, flex: 1 }]}>NEXT STEP</Text>

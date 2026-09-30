@@ -27,7 +27,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, glowFor, ios, shared, space, type } from '../theme';
+import { colors, glowFor, ink, ios, shared, space, tint, type } from '../theme';
 import { curve, ease } from '../lib/motion';
 import { Icon, type IconName } from './icons';
 import { Glass } from './glass';
@@ -227,7 +227,7 @@ export function GhostButton({
         borderRadius: 13,
         borderCurve: 'continuous',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
+        borderColor: ink(0.12),
         backgroundColor: colors.surface,
       }}
     >
@@ -299,7 +299,7 @@ export function LedLoader({
               height: size,
               borderRadius: size / 2,
               backgroundColor: color,
-              boxShadow: glow ? `0 0 ${size}px rgba(244,60,20,0.7)` : undefined,
+              boxShadow: glow ? `0 0 ${size}px ${tint(0.7)}` : undefined,
               animationName: LED_PULSE,
               animationDuration: 1200,
               animationDelay: delay,
@@ -382,7 +382,7 @@ function RoundButton({
         <Glass
           interactive
           style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
-          fallback={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+          fallback={{ backgroundColor: ink(0.08) }}
         >
           <Icon name={icon} size={size} color={colors.text} />
         </Glass>
@@ -402,7 +402,7 @@ function RoundButton({
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: active ? 'rgba(255,255,255,0.07)' : 'transparent',
+        backgroundColor: active ? ink(0.07) : 'transparent',
       }}
     >
       <Icon name={icon} size={size} color={color} />

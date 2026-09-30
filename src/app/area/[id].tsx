@@ -22,7 +22,7 @@ import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-re
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, radius, shared, space, type } from '../../theme';
+import { colors, keyboard, radius, shared, space, tint, type } from '../../theme';
 import { ease } from '../../lib/motion';
 import { haptic } from '../../lib/haptics';
 import {
@@ -363,8 +363,8 @@ export default function AreaScreen() {
                 placeholder={`Add a task to ${area.name}`}
                 placeholderTextColor={colors.faint}
                 cursorColor={colors.accent}
-                keyboardAppearance="dark"
-                selectionColor="rgba(244,60,20,0.35)"
+                keyboardAppearance={keyboard()}
+                selectionColor={tint(0.35)}
                 returnKeyType="done"
                 submitBehavior="submit"
                 onSubmitEditing={submitDraft}
@@ -408,8 +408,8 @@ export default function AreaScreen() {
                 borderRadius: 13,
                 borderCurve: 'continuous',
                 borderWidth: 1,
-                borderColor: 'rgba(244,60,20,0.35)',
-                backgroundColor: 'rgba(244,60,20,0.05)',
+                borderColor: tint(0.35),
+                backgroundColor: tint(0.05),
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.sm }}>
@@ -449,8 +449,8 @@ export default function AreaScreen() {
                 borderRadius: radius.md,
                 borderCurve: 'continuous',
                 borderWidth: 1,
-                borderColor: 'rgba(244,60,20,0.35)',
-                backgroundColor: 'rgba(244,60,20,0.05)',
+                borderColor: tint(0.35),
+                backgroundColor: tint(0.05),
               }}
             >
               {suggesting ? (

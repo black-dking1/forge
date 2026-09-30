@@ -20,7 +20,7 @@ import Animated, {
   type CSSAnimationProperties,
   type CSSAnimationTimingFunction,
 } from 'react-native-reanimated';
-import { colors, space, type } from '../theme';
+import { colors, ink, space, tint, type } from '../theme';
 import { curve } from '../lib/motion';
 import type { Area, Task } from '../lib/projects';
 import { Press } from './ui';
@@ -96,7 +96,7 @@ export function Blueprint({
           borderRadius: 999,
           backgroundColor: colors.node,
           borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
+          borderColor: ink(0.1),
           maxWidth: '100%',
           ...play(animate, ROOT_FLICKER, 160, 0, 'linear'),
         }}
@@ -146,7 +146,7 @@ export function Blueprint({
                     borderWidth: 1.5,
                     borderColor: full ? colors.accent : colors.nodeLine,
                     backgroundColor: full ? colors.accent : colors.nav,
-                    boxShadow: full ? '0 0 10px rgba(244,60,20,0.55)' : undefined,
+                    boxShadow: full ? `0 0 10px ${tint(0.55)}` : undefined,
                     ...play(animate, NODE_IN, 128, start),
                   }}
                 />
@@ -169,7 +169,7 @@ export function Blueprint({
                       borderCurve: 'continuous',
                       backgroundColor: colors.raised,
                       borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.07)',
+                      borderColor: ink(0.07),
                     }}
                   >
                     <Text style={[type.area, { fontSize: 13, color: colors.soft, flex: 1 }]} numberOfLines={1}>

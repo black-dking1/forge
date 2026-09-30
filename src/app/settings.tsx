@@ -12,7 +12,7 @@ import * as WebBrowser from 'expo-web-browser';
 import Animated from 'react-native-reanimated';
 import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, shared, space, type } from '../theme';
+import { colors, ink, shared, space, theme, tint, type } from '../theme';
 import { useAuth, signOut } from '../lib/auth';
 import { countProjects } from '../lib/projects';
 import { checkPro, FREE_BUILD_LIMIT, getDevPreview, setDevPreview } from '../lib/pro';
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
               borderRadius: 24,
               backgroundColor: colors.node,
               borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.09)',
+              borderColor: ink(0.09),
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -103,8 +103,11 @@ export default function SettingsScreen() {
             padding: 18,
             borderRadius: 15,
             borderWidth: 1,
-            borderColor: 'rgba(244,60,20,0.3)',
-            experimental_backgroundImage: 'linear-gradient(150deg, #1D1512 0%, #120E0E 60%, #0D0C0C 100%)',
+            borderColor: tint(0.3),
+            experimental_backgroundImage:
+              theme.mode === 'light'
+                ? 'linear-gradient(150deg, #FCECE6 0%, #FDF5F5 60%, #FBF9F9 100%)'
+                : 'linear-gradient(150deg, #1D1512 0%, #120E0E 60%, #0D0C0C 100%)',
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -209,7 +212,7 @@ function ListRow({ label, value, onPress, last = false }: { label: string; value
         alignItems: 'center',
         minHeight: 50,
         borderBottomWidth: last ? 0 : 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: ink(0.06),
       }}
     >
       <Text style={[type.bodyBold, { color: colors.soft, flex: 1 }]}>{label}</Text>

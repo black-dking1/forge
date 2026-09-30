@@ -17,6 +17,7 @@
 import type { ReactNode } from 'react';
 import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { theme } from '../theme';
 
 function check(test: () => boolean) {
   try {
@@ -51,7 +52,7 @@ export function Glass({
     <GlassView
       style={style}
       glassEffectStyle="regular"
-      colorScheme="dark"
+      colorScheme={theme.mode} // light glass in light mode
       tintColor={tint}
       isInteractive={interactive}
     >

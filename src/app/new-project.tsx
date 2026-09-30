@@ -16,16 +16,25 @@
  *   STARTER AREAS  pick from six common areas; fixed starter tasks.
  *   a template     (Pro) copy a plan you saved from an earlier build.
  *
+ * YOUR PLAN — when the AI's draft comes back, it opens in a sheet: the
+ *   build, the parts it planned around, its areas (tap one for its
+ *   tasks), the folder icon, and CREATE BUILD. EDIT DETAILS closes the
+ *   sheet; the draft also stays in the form below.
+ *
+ * VOICE ("Say it out loud") is switched off for now. The panel is still
+ * in components/voice.tsx and the server still understands spoken
+ * input, so bringing it back is a small change here.
+ *
  * ICON — the picture on the build's folder on Home. Until you tap one
  * yourself, it follows the name: type "FPV drone" and the plane lights
  * up. Once you pick, your pick stays.
  */
 
 import { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, Text, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, ios, radius, shared, space, type } from '../theme';
+import { colors, ink, ios, keyboard, radius, shared, space, tint, type } from '../theme';
 import { curve } from '../lib/motion';
 import { haptic } from '../lib/haptics';
 import {
@@ -42,6 +51,8 @@ import {
 import { checkPro, FREE_BUILD_LIMIT, usePro } from '../lib/pro';
 import { ConfirmForm, Sheet, Toast, type ToastData } from '../components/overlays';
 import { guessIcon, IconPicker } from '../components/icon-picker';
+import type { BuildIconName as BuildIconChoice } from '../components/icons';
+import { BuildIcon } from '../components/icons';
 import { Header, LedLoader, LinkButton, Press, PrimaryButton, Screen } from '../components/ui';
 import { aiMessages, draftBuild, ideasFromParts, type BuildIdea } from '../lib/ai';
 import type { TemplateStructure } from '../lib/projects';
@@ -74,6 +85,9 @@ export default function NewProjectScreen() {
   const [draft, setDraft] = useState<TemplateStructure | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [aiLeft, setAiLeft] = useState<number | null>(null);
+
+  // The YOUR PLAN sheet, shown when a fresh AI draft comes back
+  const [planOpen, setPlanOpen] = useState(false);
 
   // "What can I build with these parts?" — ideas, before there's a plan
   const [ideas, setIdeas] = useState<BuildIdea[] | null>(null);
@@ -113,6 +127,8 @@ export default function NewProjectScreen() {
     haptic.confirm();
     setDraft(result.structure);
     setAiLeft(result.left);
+    Keyboard.dismiss(); // so the sheet gets the whole screen
+    setPlanOpen(true); // show it as YOUR PLAN, ready to create
   }
 
   /** Parts in, four things you could build out. */
@@ -171,6 +187,7 @@ export default function NewProjectScreen() {
     const [{ count }, isPro] = await Promise.all([countProjects(), checkPro()]);
     if (!isPro && count >= FREE_BUILD_LIMIT) {
       setBusy(false);
+      setPlanOpen(false); // back from the paywall, the filled-in form is waiting
       router.push({
         pathname: '/paywall',
         params: {
@@ -224,7 +241,7 @@ export default function NewProjectScreen() {
           </Text>
 
           <Text style={[type.label, { color: colors.dim, marginTop: space.xl, marginBottom: space.sm }]}>PROJECT NAME</Text>
-          <View style={[field, focused === 'name' && shared.focusRing]}>
+          <View style={[field(), focused === 'name' && shared.focusRing]}>
             <TextInput
               value={name}
               onChangeText={(t) => {
@@ -237,8 +254,8 @@ export default function NewProjectScreen() {
               placeholder="Hexapod Mk II"
               placeholderTextColor={colors.faint}
               cursorColor={colors.accent}
-              selectionColor="rgba(244,60,20,0.45)"
-              keyboardAppearance="dark"
+              selectionColor={tint(0.45)}
+              keyboardAppearance={keyboard()}
               maxLength={60}
               returnKeyType="next"
               style={[type.input, { color: colors.heading, padding: 0 }]}
@@ -255,7 +272,7 @@ export default function NewProjectScreen() {
           />
 
           <Text style={[type.label, { color: colors.dim, marginTop: 18, marginBottom: space.sm }]}>GOAL</Text>
-          <View style={[field, focused === 'goal' && shared.focusRing]}>
+          <View style={[field(), focused === 'goal' && shared.focusRing]}>
             <TextInput
               value={goal}
               onChangeText={(t) => {
@@ -267,8 +284,8 @@ export default function NewProjectScreen() {
               placeholder="A six-legged walking robot that can cross rough terrain on its own."
               placeholderTextColor={colors.faint}
               cursorColor={colors.accent}
-              selectionColor="rgba(244,60,20,0.45)"
-              keyboardAppearance="dark"
+              selectionColor={tint(0.45)}
+              keyboardAppearance={keyboard()}
               multiline
               maxLength={280}
               style={[type.body, { color: colors.heading, padding: 0, minHeight: 64, textAlignVertical: 'top' }]}
@@ -299,7 +316,7 @@ export default function NewProjectScreen() {
               <Text style={[type.label, { color: colors.dim, marginTop: 22, marginBottom: space.sm }]}>
                 WHAT I ALREADY HAVE  <Text style={{ color: colors.faint }}>· OPTIONAL</Text>
               </Text>
-              <View style={[field, focused === 'have' && shared.focusRing]}>
+              <View style={[field(), focused === 'have' && shared.focusRing]}>
                 <TextInput
                   value={have}
                   onChangeText={(t) => {
@@ -312,8 +329,8 @@ export default function NewProjectScreen() {
                   placeholder="e.g. Arduino Uno, L298N motor driver, 2 DC motors, 4 wheels, an LED"
                   placeholderTextColor={colors.faint}
                   cursorColor={colors.accent}
-                  selectionColor="rgba(244,60,20,0.45)"
-                  keyboardAppearance="dark"
+                  selectionColor={tint(0.45)}
+                  keyboardAppearance={keyboard()}
                   multiline
                   maxLength={400}
                   style={[type.body, { color: colors.heading, padding: 0, minHeight: 52, textAlignVertical: 'top' }]}
@@ -326,7 +343,7 @@ export default function NewProjectScreen() {
               {/* Don't know what to make? Let the parts decide. */}
               {have.trim() && !draft ? (
                 ideas ? (
-                  <View style={[aiBox, { marginTop: space.md }]}>
+                  <View style={[aiBox(), { marginTop: space.md }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.sm }}>
                       <Text style={[type.label, { color: colors.accent, flex: 1 }]}>✦ YOU COULD BUILD</Text>
                       <LinkButton label="HIDE" onPress={() => setIdeas(null)} />
@@ -363,8 +380,8 @@ export default function NewProjectScreen() {
                       borderRadius: radius.md,
                       borderCurve: 'continuous',
                       borderWidth: 1,
-                      borderColor: 'rgba(244,60,20,0.35)',
-                      backgroundColor: 'rgba(244,60,20,0.05)',
+                      borderColor: tint(0.35),
+                      backgroundColor: tint(0.05),
                     }}
                   >
                     {ideasBusy ? (
@@ -378,7 +395,7 @@ export default function NewProjectScreen() {
                 )
               ) : null}
 
-              <AiPlan draft={draft} drafting={drafting} left={aiLeft} onRedraft={draftPlan} />
+              <AiPlan draft={draft} drafting={drafting} left={aiLeft} have={have} onRedraft={draftPlan} />
             </>
           ) : null}
 
@@ -417,6 +434,27 @@ export default function NewProjectScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* The AI's draft, ready to create */}
+      <Sheet open={planOpen && draft !== null} onClose={() => !busy && setPlanOpen(false)}>
+        {draft ? (
+          <PlanReview
+            name={name}
+            icon={icon}
+            onIcon={(next) => {
+              setIcon(next);
+              setIconPicked(true);
+            }}
+            draft={draft}
+            have={have}
+            left={aiLeft}
+            busy={busy}
+            error={error}
+            onCreate={build}
+            onEdit={() => setPlanOpen(false)}
+          />
+        ) : null}
+      </Sheet>
+
       {/* Long-press a template to delete it */}
       <Sheet open={deleting !== null} onClose={() => setDeleting(null)} title={`DELETE ${deleting?.name.toUpperCase() ?? ''}?`}>
         {deleting ? (
@@ -452,23 +490,28 @@ function AiPlan({
   draft,
   drafting,
   left,
+  have,
   onRedraft,
 }: {
   draft: TemplateStructure | null;
   drafting: boolean;
   left: number | null;
+  /** parts they already have, shown as chips above the plan */
+  have: string;
   onRedraft: () => void;
 }) {
+  const parts = partsOf(have);
+
   if (drafting) {
     return (
-      <View style={[aiBox, { alignItems: 'center', paddingVertical: space.xxl }]}>
+      <View style={[aiBox(), { alignItems: 'center', paddingVertical: space.xxl }]}>
         <LedLoader size={8} label="FORGE IS PLANNING YOUR BUILD" />
       </View>
     );
   }
   if (!draft) {
     return (
-      <View style={aiBox}>
+      <View style={aiBox()}>
         <Text style={[type.bodySm, { color: colors.dim }]}>
           FORGE reads your name and goal and drafts the areas and tasks for this exact build. The more detail in the
           goal, the sharper the plan.
@@ -477,11 +520,26 @@ function AiPlan({
     );
   }
   return (
-    <View style={aiBox}>
+    <View style={aiBox()}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: space.md }}>
         <Text style={[type.label, { color: colors.accent, flex: 1 }]}>✦ {describeStructure(draft)}</Text>
         <LinkButton label="REDRAFT" onPress={onRedraft} />
       </View>
+      {parts.length > 0 ? (
+        <View style={{ marginBottom: space.md }}>
+          <Text style={[type.labelSm, { color: colors.label, marginBottom: 6 }]}>TAILORED TO YOUR PARTS</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {parts.map((part) => (
+              <View
+                key={part}
+                style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: colors.lineDashed }}
+              >
+                <Text style={[type.labelSm, { color: colors.soft }]}>{part.toUpperCase()}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
       {draft.areas.map((area) => (
         <View key={area.name} style={{ marginBottom: space.md }}>
           <Text style={[type.area, { fontSize: 13, color: colors.soft }]}>{area.name.toUpperCase()}</Text>
@@ -499,15 +557,196 @@ function AiPlan({
   );
 }
 
-const aiBox = {
-  marginTop: space.md,
-  padding: space.lg,
-  borderRadius: 13,
-  borderCurve: 'continuous',
-  borderWidth: 1,
-  borderColor: 'rgba(244,60,20,0.35)',
-  backgroundColor: 'rgba(244,60,20,0.05)',
-} as const;
+/** "18 servos, Arduino Mega and 2 LiPo packs" → three chips */
+function partsOf(have: string) {
+  return have
+    .split(/,|\band\b|\n/i)
+    .map((part) => part.replace(/^(i've got|i have|i got|got|a|an)\s+/i, '').trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+/** The big dot-matrix title at the top of the plan sheet. */
+function SheetTitle({ label, tag }: { label: string; tag?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: 8, marginBottom: space.md }}>
+      {tag ? (
+        <View style={{ paddingVertical: 2, paddingHorizontal: 6, borderRadius: 4, backgroundColor: colors.accent }}>
+          <Text style={[type.tab, { fontSize: 10, color: colors.onAccent }]}>{tag}</Text>
+        </View>
+      ) : null}
+      <Text style={[type.tab, { fontSize: 16, lineHeight: 20, letterSpacing: 2.6, color: colors.heading }]}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * YOUR PLAN — what the AI made from what you said, before anything is
+ * saved: the build, the parts it planned around, every area (tap one to
+ * see its tasks) and the folder icon. CREATE BUILD saves it all.
+ */
+function PlanReview({
+  name,
+  icon,
+  onIcon,
+  draft,
+  have,
+  left,
+  busy,
+  error,
+  onCreate,
+  onEdit,
+}: {
+  name: string;
+  icon: string;
+  onIcon: (icon: BuildIconChoice) => void;
+  draft: TemplateStructure;
+  have: string;
+  left: number | null;
+  busy: boolean;
+  error: string | null;
+  onCreate: () => void;
+  onEdit: () => void;
+}) {
+  const { height } = useWindowDimensions();
+  const [open, setOpen] = useState<string | null>(null);
+  const parts = partsOf(have);
+  const taskCount = draft.areas.reduce((sum, area) => sum + area.tasks.length, 0);
+
+  return (
+    <View>
+      <SheetTitle label="YOUR PLAN" tag="AI" />
+      <ScrollView style={{ maxHeight: height * 0.56 }} showsVerticalScrollIndicator={false}>
+        {/* The build */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <View
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 11,
+              borderCurve: 'continuous',
+              borderWidth: 1,
+              borderColor: tint(0.45),
+              backgroundColor: tint(0.08),
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <BuildIcon name={icon} size={28} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={[type.area, { fontSize: 17, lineHeight: 22, color: colors.heading }]} numberOfLines={2}>
+              {name.toUpperCase()}
+            </Text>
+            <Text style={[type.bodySm, { color: colors.dim }]}>
+              {draft.areas.length} {draft.areas.length === 1 ? 'area' : 'areas'} · {taskCount}{' '}
+              {taskCount === 1 ? 'task' : 'tasks'}
+            </Text>
+          </View>
+        </View>
+
+        {/* The parts it planned around */}
+        {parts.length > 0 ? (
+          <View style={{ marginTop: space.lg }}>
+            <Text style={[type.labelSm, { color: colors.label, marginBottom: space.sm }]}>TAILORED TO YOUR PARTS</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {parts.map((part) => (
+                <View
+                  key={part}
+                  style={{
+                    paddingVertical: 6,
+                    paddingHorizontal: 11,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: colors.accentLine,
+                    backgroundColor: tint(0.06),
+                  }}
+                >
+                  <Text style={[type.labelSm, { color: colors.accent }]}>{part.toUpperCase()}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* The areas */}
+        <View style={{ gap: space.sm, marginTop: space.lg }}>
+          {draft.areas.map((area) => {
+            const expanded = open === area.name;
+            return (
+              <Pressable
+                key={area.name}
+                onPress={() => {
+                  haptic.select();
+                  setOpen(expanded ? null : area.name);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                accessibilityLabel={`${area.name}, ${area.tasks.length} tasks`}
+                style={{
+                  paddingVertical: 14,
+                  paddingHorizontal: 14,
+                  borderRadius: 12,
+                  borderCurve: 'continuous',
+                  borderWidth: 1,
+                  borderColor: expanded ? tint(0.4) : colors.folderLine,
+                  backgroundColor: colors.field,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                  <Text style={[type.area, { fontSize: 13, color: colors.soft, flex: 1 }]} numberOfLines={1}>
+                    {area.name.toUpperCase()}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 3 }}>
+                    {area.tasks.slice(0, 8).map((_, i) => (
+                      <View key={i} style={{ width: 7, height: 7, borderRadius: 1.5, backgroundColor: colors.dotOff }} />
+                    ))}
+                  </View>
+                  <Text style={[type.foot, { color: colors.dim, minWidth: 44, textAlign: 'right' }]}>
+                    {area.tasks.length} {area.tasks.length === 1 ? 'task' : 'tasks'}
+                  </Text>
+                </View>
+                {expanded
+                  ? area.tasks.map((task, i) => (
+                      <Text key={i} style={[type.bodySm, { color: colors.dim, marginTop: i === 0 ? space.md : 4 }]}>
+                        ○  {task}
+                      </Text>
+                    ))
+                  : null}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* The folder icon */}
+        <Text style={[type.labelSm, { color: colors.label, marginTop: space.lg, marginBottom: space.sm }]}>ICON</Text>
+        <IconPicker value={icon} onChange={onIcon} />
+      </ScrollView>
+
+      {error ? <Text style={[type.bodySm, { color: colors.danger, marginTop: space.md }]}>{error}</Text> : null}
+      <PrimaryButton label="CREATE BUILD" busy={busy} onPress={onCreate} style={{ marginTop: space.lg }} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md }}>
+        <Text style={[type.foot, { color: colors.faint, flex: 1 }]}>
+          Nothing is saved yet.{left !== null ? ` ${left} AI uses left today.` : ''}
+        </Text>
+        <LinkButton label="EDIT DETAILS" onPress={onEdit} />
+      </View>
+    </View>
+  );
+}
+
+// Functions, not constants, so they pick up the current theme's colours.
+function aiBox() {
+  return {
+    marginTop: space.md,
+    padding: space.lg,
+    borderRadius: 13,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: tint(0.35),
+    backgroundColor: tint(0.05),
+  } as const;
+}
 
 /** An area chip. Colours cross-fade (180ms) and it squeezes under your thumb. */
 function Chip({
@@ -539,8 +778,8 @@ function Chip({
           paddingHorizontal: 14,
           borderRadius: 999,
           borderWidth: 1,
-          borderColor: on ? 'rgba(244,60,20,0.7)' : 'rgba(255,255,255,0.1)',
-          backgroundColor: on ? 'rgba(244,60,20,0.14)' : colors.field,
+          borderColor: on ? colors.accentPicked : ink(0.1),
+          backgroundColor: on ? tint(0.14) : colors.field,
           transitionProperty: ['borderColor', 'backgroundColor'],
           transitionDuration: 180,
           transitionTimingFunction: curve.standard,
@@ -560,11 +799,13 @@ function Chip({
   );
 }
 
-const field = {
-  paddingHorizontal: 15,
-  paddingVertical: 13,
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.09)',
-  backgroundColor: colors.field,
-} as const;
+function field() {
+  return {
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: ink(0.09),
+    backgroundColor: colors.field,
+  } as const;
+}

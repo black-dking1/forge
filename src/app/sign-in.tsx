@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, shared, space, type } from '../theme';
+import { colors, ink, keyboard, shared, space, tint, type } from '../theme';
 import { haptic } from '../lib/haptics';
 import { signIn, signUp } from '../lib/auth';
 import { Wordmark } from '../components/art';
@@ -194,7 +194,7 @@ function Field({
             paddingVertical: 13,
             borderRadius: 12,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.09)',
+            borderColor: ink(0.09),
             backgroundColor: colors.field,
           },
           focused && shared.focusRing,
@@ -209,8 +209,8 @@ function Field({
           placeholder={placeholder}
           placeholderTextColor={colors.faint}
           cursorColor={colors.accent}
-          selectionColor="rgba(244,60,20,0.45)"
-          keyboardAppearance="dark"
+          selectionColor={tint(0.45)}
+          keyboardAppearance={keyboard()}
           secureTextEntry={secure}
           keyboardType={keyboardType ?? 'default'}
           autoCapitalize={autoCapitalize}

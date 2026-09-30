@@ -38,7 +38,17 @@
           "imageWidth": 76
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "FORGE uses the microphone so you can describe a build out loud.",
+          "speechRecognitionPermission": "FORGE turns what you say into text so it can plan your build.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

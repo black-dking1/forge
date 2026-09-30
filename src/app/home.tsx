@@ -3,6 +3,7 @@
  *
  * Top to bottom:
  *   GOOD EVENING, NAME   and "6 active builds · 59 open tasks"
+ *                        + the sun / moon: switch light and dark (Home v4)
  *   SEARCH               builds, areas and tasks, as you type
  *   NEXT UP              the pinned next step of the build you touched
  *                        last, so opening the app says what to do now
@@ -20,7 +21,7 @@
  * doesn't need its own button for it (V2 of the design had two).
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from 'react';
 import {
   BackHandler,
   Keyboard,
@@ -36,9 +37,10 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors, fonts, shared, space, type } from '../theme';
+import { colors, fonts, ink, keyboard, shared, space, tint, type } from '../theme';
 import { curve, ease } from '../lib/motion';
 import { useAuth } from '../lib/auth';
+import { useAppearance } from '../lib/appearance';
 import {
   listProjects,
   searchAreasAndTasks,
@@ -47,12 +49,17 @@ import {
   type TaskHit,
 } from '../lib/projects';
 import { timeAgo } from '../lib/time';
-import { DotField } from '../components/art';
 import { useNavSpace } from '../components/bottom-nav';
-import { BuildIcon, Icon } from '../components/icons';
-import { DashedButton, Press, PrimaryButton, Screen } from '../components/ui';
+import { BuildIcon, DotIcon, Icon } from '../components/icons';
+import { Press, PrimaryButton, Screen } from '../components/ui';
 
 type Status = 'loading' | 'ready' | 'error';
+
+// The last list of builds Home showed, and whose they were. When the
+// theme switches every screen is rebuilt; this lets Home come back
+// showing your folders straight away instead of a loading skeleton.
+// It's tied to the signed-in user so nobody ever sees someone else's.
+let lastShown: { userId: string; projects: ProjectOverview[] } | null = null;
 
 /** How much lower the right-hand column of folders starts. */
 const STAGGER = 56;
@@ -60,11 +67,13 @@ const DAY = 24 * 60 * 60 * 1000;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { displayName } = useAuth();
+  const { displayName, session } = useAuth();
   const navSpace = useNavSpace();
+  const userId = session?.user?.id ?? '';
+  const cached = lastShown && lastShown.userId === userId ? lastShown.projects : null;
 
-  const [projects, setProjects] = useState<ProjectOverview[]>([]);
-  const [status, setStatus] = useState<Status>('loading');
+  const [projects, setProjects] = useState<ProjectOverview[]>(cached ?? []);
+  const [status, setStatus] = useState<Status>(cached ? 'ready' : 'loading');
   const [refreshing, setRefreshing] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState('');
@@ -80,7 +89,8 @@ export default function HomeScreen() {
     }
     setProjects(result.projects);
     setStatus('ready');
-  }, []);
+    if (userId) lastShown = { userId, projects: result.projects };
+  }, [userId]);
 
   // Runs every time Home comes back into view, so ticking a task
   // elsewhere and coming back shows the new percentage.
@@ -142,10 +152,13 @@ export default function HomeScreen() {
           />
         }
       >
-        <Text style={[type.greeting, { color: colors.heading }]} accessibilityRole="header">
-          {greeting()},{'\n'}
-          {name}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.md }}>
+          <Text style={[type.greeting, { color: colors.heading, flex: 1 }]} accessibilityRole="header">
+            {greeting()},{'\n'}
+            {name}
+          </Text>
+          <ThemeSwitch />
+        </View>
 
         {status === 'loading' ? <Loading /> : null}
 
@@ -209,6 +222,36 @@ export default function HomeScreen() {
 }
 
 // ---------------------------------------------------------------
+// THE THEME SWITCH — sun in dark mode, moon in light
+// ---------------------------------------------------------------
+
+function ThemeSwitch() {
+  const { mode, toggle } = useAppearance();
+  const light = mode === 'light';
+  return (
+    <Press
+      onPress={toggle}
+      scaleTo={0.92}
+      accessibilityRole="button"
+      accessibilityLabel={light ? 'Switch to dark mode' : 'Switch to light mode'}
+      style={{
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 12,
+        borderCurve: 'continuous',
+        borderWidth: 1,
+        borderColor: colors.folderLine,
+        backgroundColor: colors.field,
+      }}
+    >
+      <DotIcon name={light ? 'moon' : 'sun'} size={22} color={colors.accent} />
+    </Press>
+  );
+}
+
+// ---------------------------------------------------------------
 // SEARCH
 // ---------------------------------------------------------------
 
@@ -243,8 +286,8 @@ function SearchField({ value, onChange }: { value: string; onChange: (text: stri
         placeholder="Search builds, areas, tasks"
         placeholderTextColor={colors.off}
         cursorColor={colors.accent}
-        selectionColor="rgba(244,60,20,0.45)"
-        keyboardAppearance="dark"
+        selectionColor={tint(0.45)}
+        keyboardAppearance={keyboard()}
         returnKeyType="search"
         autoCorrect={false}
         autoCapitalize="none"
@@ -371,7 +414,7 @@ function SearchResults({
       <View style={{ gap: space.sm, marginTop: 14 }}>
         {rows.map((row) => (
           <Animated.View key={row.key} entering={FadeIn.duration(180)}>
-            <ResultRow row={row} />
+            <ResultRow row={row} query={query} />
           </Animated.View>
         ))}
       </View>
@@ -379,7 +422,7 @@ function SearchResults({
   );
 }
 
-function ResultRow({ row }: { row: Row }) {
+function ResultRow({ row, query }: { row: Row; query: string }) {
   return (
     <Press
       onPress={row.onPress}
@@ -411,7 +454,7 @@ function ResultRow({ row }: { row: Row }) {
           ]}
           numberOfLines={2}
         >
-          {row.title}
+          {marked(row.title, query)}
         </Text>
         <Text style={[type.bodySm, { fontSize: 12, lineHeight: 16, color: colors.label }]} numberOfLines={1}>
           {row.sub}
@@ -419,6 +462,26 @@ function ResultRow({ row }: { row: Row }) {
       </View>
     </Press>
   );
+}
+
+/** "Mount the 12 servos" with "servo" lit up in orange. */
+function marked(title: string, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return title;
+  const lower = title.toLowerCase();
+  const parts: (string | ReactElement)[] = [];
+  let from = 0;
+  for (let at = lower.indexOf(q); at >= 0; at = lower.indexOf(q, from)) {
+    if (at > from) parts.push(title.slice(from, at));
+    parts.push(
+      <Text key={at} style={{ color: colors.accent }}>
+        {title.slice(at, at + q.length)}
+      </Text>
+    );
+    from = at + q.length;
+  }
+  parts.push(title.slice(from));
+  return parts;
 }
 
 // ---------------------------------------------------------------
@@ -452,7 +515,7 @@ function NextUp({ project, onPress }: { project: ProjectOverview; onPress: () =>
               height: 7,
               borderRadius: 3.5,
               backgroundColor: colors.accent,
-              boxShadow: '0 0 8px rgba(244,60,20,0.8)',
+              boxShadow: `0 0 8px ${tint(0.8)}`,
             }}
           />
           <Text style={[type.labelSm, { fontFamily: fonts.displayBold, color: colors.accent }]}>NEXT UP</Text>
@@ -552,8 +615,8 @@ function Folder({ project, onPress }: { project: ProjectOverview; onPress: () =>
             <BuildIcon name={project.icon} size={22} />
           </View>
           <View style={{ flex: 1, gap: 3 }}>
-            <Text style={[type.bodySm, folderMeta]}>{plural(project.area_count, 'area')}</Text>
-            <Text style={[type.bodySm, folderMeta]}>{plural(project.total_tasks, 'task')}</Text>
+            <Text style={[type.bodySm, folderMeta, { color: colors.dim }]}>{plural(project.area_count, 'area')}</Text>
+            <Text style={[type.bodySm, folderMeta, { color: colors.dim }]}>{plural(project.total_tasks, 'task')}</Text>
           </View>
           {isNew ? <NewBadge /> : null}
         </View>
@@ -608,7 +671,7 @@ function SectionTitle({ children, style }: { children: ReactNode; style?: StyleP
   );
 }
 
-const folderMeta = { fontSize: 12, lineHeight: 15, color: colors.dim } as const;
+const folderMeta = { fontSize: 12, lineHeight: 15 } as const;
 const folderName = { fontFamily: fonts.displayBold, fontSize: 14, lineHeight: 17, letterSpacing: 0.8, includeFontPadding: false } as const;
 
 // ---------------------------------------------------------------
@@ -655,8 +718,8 @@ function Loading() {
             marginTop: 22,
             borderRadius: 14,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.04)',
-            backgroundColor: '#0E1012',
+            borderColor: ink(0.04),
+            backgroundColor: colors.skeletonCard,
           },
           breathe(80),
         ]}
@@ -676,8 +739,8 @@ function Loading() {
                     borderBottomLeftRadius: 14,
                     borderBottomRightRadius: 14,
                     borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.04)',
-                    backgroundColor: '#0E1012',
+                    borderColor: ink(0.04),
+                    backgroundColor: colors.skeletonCard,
                   }}
                 >
                   <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -707,7 +770,7 @@ function SignalLost({ onRetry }: { onRetry: () => void }) {
           height: 10,
           borderRadius: 5,
           backgroundColor: colors.accent,
-          boxShadow: '0 0 12px rgba(244,60,20,0.8)',
+          boxShadow: `0 0 12px ${tint(0.8)}`,
         }}
       />
       <Text
@@ -724,16 +787,37 @@ function SignalLost({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+/** No builds yet: an empty dashed folder where the first one will go. */
 function Empty({ onNew }: { onNew: () => void }) {
+  const dashed = { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.lineDashed } as const;
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ marginTop: 30 }}>
-        <DotField height={280} />
-      </View>
-      <Text style={[type.area, { color: colors.dim, textAlign: 'center', marginTop: 22 }]}>
-        waiting for your first build
-      </Text>
-      <DashedButton label="NEW BUILD" onPress={onNew} style={{ marginTop: 'auto', marginBottom: space.sm }} />
+    <View style={{ marginTop: 26 }}>
+      <Text style={[type.labelSm, { color: colors.label }]}>MY BUILDS</Text>
+      <Pressable
+        onPress={onNew}
+        accessibilityRole="button"
+        accessibilityLabel="New build"
+        style={({ pressed }) => ({ marginTop: space.md, opacity: pressed ? 0.7 : 1 })}
+      >
+        <View style={[dashed, { width: '30%', height: 11, borderBottomWidth: 0, borderTopLeftRadius: 6, borderTopRightRadius: 6 }]} />
+        <View
+          style={[
+            dashed,
+            {
+              height: 150,
+              borderRadius: 12,
+              borderTopLeftRadius: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              paddingHorizontal: space.lg,
+            },
+          ]}
+        >
+          <Text style={[type.area, { fontSize: 13, color: colors.dim }]}>NO BUILDS YET</Text>
+          <Text style={[type.bodySm, { color: colors.dim, textAlign: 'center' }]}>Tap + to start your first build.</Text>
+        </View>
+      </Pressable>
     </View>
   );
 }

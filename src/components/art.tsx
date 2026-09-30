@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-import { colors, type } from '../theme';
+import { colors, ink, tint, type } from '../theme';
 import { curve } from '../lib/motion';
 
 function dot(x: number, y: number, r: number) {
@@ -146,7 +146,7 @@ export function DotField({ height = 280 }: { height?: number }) {
               height: 8,
               borderRadius: 4,
               backgroundColor: colors.accent,
-              boxShadow: '0 0 12px rgba(244,60,20,0.8)',
+              boxShadow: `0 0 12px ${tint(0.8)}`,
               animationName: EMPTY_PULSE,
               animationDuration: 2400,
               animationIterationCount: 'infinite',
@@ -183,7 +183,7 @@ export function Wordmark({ style }: { style?: StyleProp<ViewStyle> }) {
             type.wordmark,
             {
               color: colors.white,
-              textShadowColor: 'rgba(255,255,255,0.14)',
+              textShadowColor: ink(0.14),
               textShadowRadius: 16,
               animationName: FLICKER,
               animationDuration: 216,

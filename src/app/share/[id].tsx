@@ -16,7 +16,7 @@ import { ScrollView, Share, Text, View, useWindowDimensions } from 'react-native
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { colors, space, type } from '../../theme';
+import { colors, shade, space, type } from '../../theme';
 import { haptic } from '../../lib/haptics';
 import { checkPro } from '../../lib/pro';
 import { getProject, listAreas, listTasks, type Area, type ProjectOverview, type Task } from '../../lib/projects';
@@ -133,7 +133,7 @@ export default function ShareScreen() {
             overflow: 'hidden',
             borderWidth: 1,
             borderColor: colors.lineMid,
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            boxShadow: `0 20px 40px ${shade(0.5)}`,
           }}
         >
           <ShareCard ref={cardRef} project={data.project} areas={data.areas} tasks={data.tasks} width={cardWidth} />

@@ -7,9 +7,12 @@
  *   3. Start RevenueCat
  *   4. Set how each screen animates in
  *   5. Draw the ONE bottom nav that floats over Home and Settings
+ *   6. Light or dark: read the saved theme before the splash lifts,
+ *      and redraw every screen when it changes (lib/appearance.tsx)
  */
 
 import { useEffect, useState } from 'react';
+import * as SystemUI from 'expo-system-ui';
 import { Platform, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -18,6 +21,7 @@ import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '../lib/auth';
+import { AppearanceProvider, useAppearance } from '../lib/appearance';
 import { colors, fontAssets } from '../theme';
 import { BottomNav } from '../components/bottom-nav';
 
@@ -42,6 +46,15 @@ const sheet = ios
   : ({ animation: 'slide_from_bottom' } as const);
 
 export default function RootLayout() {
+  return (
+    <AppearanceProvider>
+      <Root />
+    </AppearanceProvider>
+  );
+}
+
+function Root() {
+  const { mode, ready: themeReady } = useAppearance();
   const [fontsLoaded, fontError] = useFonts(fontAssets);
   const [purchasesReady, setPurchasesReady] = useState(false);
 
@@ -84,12 +97,18 @@ export default function RootLayout() {
   // If a font file is missing, carry on with the system font rather
   // than hanging on the splash screen forever.
   useEffect(() => {
-    if ((fontsLoaded || fontError) && purchasesReady) {
+    if ((fontsLoaded || fontError) && purchasesReady && themeReady) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded, fontError, purchasesReady]);
+  }, [fontsLoaded, fontError, purchasesReady, themeReady]);
 
-  if (!fontsLoaded && !fontError) {
+  // The window behind the app (seen for a moment during some
+  // transitions) follows the theme too.
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
+  }, [mode]);
+
+  if ((!fontsLoaded && !fontError) || !themeReady) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
   if (fontError) {
@@ -100,29 +119,34 @@ export default function RootLayout() {
     // Swipe-to-delete needs this wrapper around the whole app.
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <AuthProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.bg },
-            animation: 'fade',
-          }}
-        >
-          {/* Drilling in slides from the right; things you fill in and
-              leave (new build, Pro) rise from the bottom.
+        <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
+        {/* key={mode}: switching theme rebuilds every screen below, so
+            each one draws itself again with the new colours. You stay
+            where you were — the navigator keeps its place. */}
+        <View key={mode} style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+              animation: 'fade',
+            }}
+          >
+            {/* Drilling in slides from the right; things you fill in and
+                leave (new build, Pro) rise from the bottom.
 
-              On iPhone these are the real iOS versions: a native push
-              you can swipe back from the left edge, and native "page
-              sheet" cards that you can pull down to dismiss, with the
-              screen behind shrinking back like in Apple's own apps. */}
-          <Stack.Screen name="project/[id]" options={drillIn} />
-          <Stack.Screen name="area/[id]" options={drillIn} />
-          <Stack.Screen name="share/[id]" options={drillIn} />
-          <Stack.Screen name="account" options={drillIn} />
-          <Stack.Screen name="new-project" options={sheet} />
-          <Stack.Screen name="paywall" options={sheet} />
-        </Stack>
-        <BottomNav />
+                On iPhone these are the real iOS versions: a native push
+                you can swipe back from the left edge, and native "page
+                sheet" cards that you can pull down to dismiss, with the
+                screen behind shrinking back like in Apple's own apps. */}
+            <Stack.Screen name="project/[id]" options={drillIn} />
+            <Stack.Screen name="area/[id]" options={drillIn} />
+            <Stack.Screen name="share/[id]" options={drillIn} />
+            <Stack.Screen name="account" options={drillIn} />
+            <Stack.Screen name="new-project" options={sheet} />
+            <Stack.Screen name="paywall" options={sheet} />
+          </Stack>
+          <BottomNav />
+        </View>
       </AuthProvider>
     </GestureHandlerRootView>
   );

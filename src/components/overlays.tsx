@@ -31,7 +31,7 @@ import Animated, {
   SlideOutDown,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, ios, radius, shared, space, type } from '../theme';
+import { colors, ink, ios, keyboard, radius, shade, shared, space, type } from '../theme';
 import { curve, ease } from '../lib/motion';
 import { NEXT_STEP_MAX } from '../lib/projects';
 import { Icon, type IconName } from './icons';
@@ -78,7 +78,7 @@ export function Sheet({
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(160)}
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(4,5,6,0.68)' }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
         >
           <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
@@ -100,10 +100,10 @@ export function Sheet({
             backgroundColor: colors.sheet,
             borderTopWidth: 1,
             borderColor: colors.lineMid,
-            boxShadow: '0 -20px 50px rgba(0,0,0,0.5)',
+            boxShadow: `0 -20px 50px ${shade(0.5)}`,
           }}
         >
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#3A3A38', alignSelf: 'center' }} />
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.handle, alignSelf: 'center' }} />
           {title ? (
             <Text style={[type.label, { color: colors.label, marginTop: 18 }]} numberOfLines={1}>
               {title}
@@ -145,7 +145,7 @@ export function SheetRow({
         minHeight: 56,
         paddingHorizontal: 2,
         borderBottomWidth: last ? 0 : 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: ink(0.06),
         opacity: pressed ? 0.6 : 1,
       })}
     >
@@ -207,7 +207,7 @@ export function RenameForm({
           onChangeText={setValue}
           placeholder={placeholder}
           placeholderTextColor={colors.faint}
-          keyboardAppearance="dark"
+          keyboardAppearance={keyboard()}
           autoFocus
           selectTextOnFocus
           returnKeyType="done"
@@ -265,7 +265,7 @@ export function InventoryForm({
           onChangeText={setValue}
           placeholder="e.g. Arduino Uno, L298N motor driver, 2 DC motors, 4 wheels, an LED"
           placeholderTextColor={colors.faint}
-          keyboardAppearance="dark"
+          keyboardAppearance={keyboard()}
           autoFocus
           multiline
           maxLength={400}
@@ -327,7 +327,7 @@ export function NextStepForm({
           onChangeText={setValue}
           placeholder="e.g. Repeat the button input test"
           placeholderTextColor={colors.faint}
-          keyboardAppearance="dark"
+          keyboardAppearance={keyboard()}
           autoFocus
           selectTextOnFocus
           multiline
@@ -424,7 +424,7 @@ export function Menu({
             width: ios ? 230 : 204,
             borderRadius: ios ? 22 : 14,
             borderCurve: 'continuous',
-            boxShadow: '0 18px 40px rgba(0,0,0,0.55)',
+            boxShadow: `0 18px 40px ${shade(0.55)}`,
             transformOrigin: 'top right',
             animationName: MENU_IN,
             animationDuration: 180,
@@ -433,11 +433,11 @@ export function Menu({
         >
           <Glass
             style={{ padding: 6, borderRadius: ios ? 22 : 14, borderCurve: 'continuous' }}
-            fallback={{ backgroundColor: colors.menu, borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' }}
+            fallback={{ backgroundColor: colors.menu, borderWidth: 1, borderColor: ink(0.09) }}
           >
           {items.map((item, i) => (
             <View key={item.label}>
-              {i > 0 ? <View style={{ height: 1, marginHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.06)' }} /> : null}
+              {i > 0 ? <View style={{ height: 1, marginHorizontal: 8, backgroundColor: ink(0.06) }} /> : null}
               <Pressable
                 onPress={() => {
                   onClose();
@@ -451,7 +451,7 @@ export function Menu({
                   minHeight: 48,
                   paddingHorizontal: 14,
                   borderRadius: 9,
-                  backgroundColor: pressed ? 'rgba(255,255,255,0.05)' : 'transparent',
+                  backgroundColor: pressed ? ink(0.05) : 'transparent',
                 })}
               >
                 <Icon name={item.icon} size={item.icon === 'trash' ? 15 : 16} color={item.danger ? colors.danger : colors.dim} />
@@ -508,7 +508,7 @@ export function Toast({
           entering={(ios ? SlideInDown : FadeInDown).duration(250).easing(ease.decelerate)}
           exiting={FadeOutDown.duration(180).easing(ease.accelerate)}
           accessibilityLiveRegion="polite"
-          style={{ borderRadius: ios ? 22 : 14, boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}
+          style={{ borderRadius: ios ? 22 : 14, boxShadow: `0 12px 30px ${shade(0.5)}` }}
         >
           <Glass
             style={{
@@ -520,7 +520,7 @@ export function Toast({
               borderRadius: ios ? 22 : 14,
               borderCurve: 'continuous',
             }}
-            fallback={{ backgroundColor: colors.node, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+            fallback={{ backgroundColor: colors.node, borderWidth: 1, borderColor: ink(0.1) }}
           >
           <Text style={[type.bodyBold, { color: colors.text, flex: 1 }]} numberOfLines={2}>
             {toast.message}

@@ -24,7 +24,7 @@ import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, ios, space, type } from '../theme';
+import { colors, ios, space, tint, type } from '../theme';
 import { curve } from '../lib/motion';
 import { haptic } from '../lib/haptics';
 import { createProject, createProjectFromTemplate, type TemplateStructure } from '../lib/projects';
@@ -245,10 +245,10 @@ export default function PaywallScreen() {
                   backgroundColor: colors.accent,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 0 10px rgba(244,60,20,0.35)',
+                  boxShadow: `0 0 10px ${tint(0.35)}`,
                 }}
               >
-                <Icon name="check" size={12} color="#FFFFFF" />
+                <Icon name="check" size={12} color={colors.onAccent} />
               </View>
               <Text style={[type.bodyBold, { color: colors.soft }]}>{feature}</Text>
             </View>
@@ -355,7 +355,7 @@ function PlanCard({
           borderWidth: 1,
           borderColor: selected ? colors.accentFocus : colors.lineMid,
           backgroundColor: selected ? colors.accentSoft : colors.surface,
-          boxShadow: selected ? '0 0 0 3px rgba(244,60,20,0.12)' : '0 0 0 0 rgba(244,60,20,0)',
+          boxShadow: selected ? `0 0 0 3px ${tint(0.12)}` : `0 0 0 0 ${tint(0)}`,
           transitionProperty: ['borderColor', 'backgroundColor'],
           transitionDuration: 180,
           transitionTimingFunction: curve.standard,
@@ -365,7 +365,7 @@ function PlanCard({
           <Text style={[type.tab, { fontSize: 14, letterSpacing: 1.7, color: colors.heading, flex: 1 }]}>{title}</Text>
           {badge ? (
             <View style={{ paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, backgroundColor: colors.accent }}>
-              <Text style={[type.tab, { fontSize: 10, letterSpacing: 1, color: '#FFFFFF' }]}>{badge}</Text>
+              <Text style={[type.tab, { fontSize: 10, letterSpacing: 1, color: colors.onAccent }]}>{badge}</Text>
             </View>
           ) : null}
         </View>
