@@ -272,7 +272,7 @@ export default function AreaScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.md, marginTop: space.lg }}>
             <Text style={[type.percent, { color: colors.accent }]}>{percent}%</Text>
             <Text style={[type.label, { letterSpacing: 1.3, color: colors.label }]}>
-              {done} OF {total} DONE
+              {done} OF {total} TASKS
             </Text>
           </View>
           <View style={{ marginTop: space.md }}>

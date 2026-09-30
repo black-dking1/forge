@@ -84,7 +84,7 @@ const dark = {
   off: '#7E7C77', //     ticked tasks, inactive nav
 
   // Dots and lines.
-  dotOff: '#3F3D3A', //  an unlit dot
+  dotOff: '#34332F', //  an unlit dot (the advert stills' value)
   spine: '#6A6762', //   the dashed lines in the blueprint
   nodeLine: '#8A8882', // the outline of an unfinished area node
   skeleton: '#2C2B29',
@@ -103,30 +103,32 @@ const dark = {
 
 export type Palette = typeof dark;
 
+// Light values follow the FORGE Advert Stills: white fields, buttons
+// and sheets on a cool off-white, cards a step darker.
 const light: Palette = {
   bg: '#F8FAFE',
-  sunk: '#F9FBFF',
-  surface: '#F1F5FA',
-  field: '#F0F4F8',
-  sheet: '#EEF2F8',
-  raised: '#EBF1F7',
-  nav: '#E8EFF5',
-  menu: '#E7EDF3',
+  sunk: '#EEF2F8',
+  surface: '#EEF2F8',
+  field: '#FFFFFF',
+  sheet: '#FFFFFF',
+  raised: '#F3F6FB',
+  nav: '#E7ECF3',
+  menu: '#FFFFFF',
   node: '#E2E8EE',
-  pill: '#E1E7ED',
-  folder: '#EFF3F7',
+  pill: '#FFFFFF',
+  folder: '#EEF2F8',
 
   line: 'rgba(0,0,0,0.05)',
   lineMid: 'rgba(0,0,0,0.08)',
   lineDashed: 'rgba(0,0,0,0.14)',
   lineStrong: 'rgba(0,0,0,0.18)',
-  folderLine: 'rgba(15,9,0,0.14)',
+  folderLine: 'rgba(15,9,0,0.12)',
   tileLine: 'rgba(15,9,0,0.1)',
 
   accent: '#FF6211',
-  accentTop: '#FF5206',
-  accentBottom: '#FF7328',
-  onAccent: '#170700', // the filter turns white-on-orange into dark-on-orange
+  accentTop: '#FF7A33',
+  accentBottom: '#F2560A',
+  onAccent: '#FFFFFF',
   accentSoft: 'rgba(255,98,17,0.10)',
   accentFaint: 'rgba(255,98,17,0.05)',
   accentLine: 'rgba(255,98,17,0.5)',
@@ -141,12 +143,12 @@ const light: Palette = {
   text: '#181201',
   soft: '#271F0D',
   header: '#383222',
-  dim: '#6A6658',
+  dim: '#6B665F',
   faint: '#777367',
   label: '#7E7A6E',
   off: '#878379',
 
-  dotOff: '#C9C5BF',
+  dotOff: '#D5DAE2',
   spine: '#9F998F',
   nodeLine: '#7B776A',
   skeleton: '#DBD9D5',
@@ -216,10 +218,9 @@ export function keyboard() {
 // Subtle on purpose — most people will feel it rather than see it.
 
 export function glowFor(hour: number = new Date().getHours()) {
-  // Light mode: the design's glow is a soft warm shade in the corner
-  // (measured from the Home v4 design) rather than a warm light.
+  // Light mode: a faint orange wash in the corner (the advert stills).
   if (theme.mode === 'light') {
-    return 'radial-gradient(140% 42% at 18% -8%, rgba(150,80,30,0.11) 0%, rgba(150,80,30,0.045) 38%, transparent 70%)';
+    return 'radial-gradient(140% 42% at 18% -8%, rgba(255,98,17,0.10) 0%, rgba(255,98,17,0.04) 38%, transparent 70%)';
   }
 
   let inner = 'rgba(243,201,157,0.17)'; // afternoon — the mockup value
@@ -232,8 +233,9 @@ export function glowFor(hour: number = new Date().getHours()) {
     inner = 'rgba(246,160,112,0.16)';
     outer = 'rgba(196,112,78,0.07)';
   } else if (hour >= 21 || hour < 5) {
-    inner = 'rgba(170,180,210,0.10)';
-    outer = 'rgba(120,130,160,0.05)';
+    // late night: the same warm glow, turned down, like embers
+    inner = 'rgba(243,185,140,0.13)';
+    outer = 'rgba(201,150,120,0.05)';
   }
 
   return `radial-gradient(140% 42% at 18% -8%, ${inner} 0%, ${outer} 38%, transparent 70%)`;

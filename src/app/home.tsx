@@ -504,30 +504,22 @@ function NextUp({ project, onPress }: { project: ProjectOverview; onPress: () =>
           borderRadius: 14,
           borderCurve: 'continuous',
           borderWidth: 1,
-          borderColor: colors.iconTileLine,
-          backgroundColor: colors.accentFaint,
+          borderColor: tint(0.7),
+          backgroundColor: colors.folder,
+          // the warm glow from the stills: this card is the way back in
+          boxShadow: `0 0 26px ${tint(0.28)}, inset 0 0 22px ${tint(0.07)}`,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-          <View
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: 3.5,
-              backgroundColor: colors.accent,
-              boxShadow: `0 0 8px ${tint(0.8)}`,
-            }}
-          />
-          <Text style={[type.labelSm, { fontFamily: fonts.displayBold, color: colors.accent }]}>NEXT UP</Text>
-          <Text style={[type.labelSm, { color: colors.label, flex: 1 }]} numberOfLines={1}>
-            · {project.name.toUpperCase()}
-          </Text>
-          {project.next_step_at ? (
-            <Text style={[type.labelSm, { color: colors.label }]}>{timeAgo(project.next_step_at)}</Text>
-          ) : null}
+          <DotIcon name="pin" size={13} color={colors.accent} />
+          <Text style={[type.label, { fontFamily: fonts.displayBold, letterSpacing: 1.8, color: colors.accent }]}>NEXT UP</Text>
         </View>
-        <Text style={[type.bodyBold, { color: colors.heading, marginTop: space.sm }]} numberOfLines={2}>
+        <Text style={[type.bodyBold, { fontSize: 15, color: colors.heading, marginTop: 9 }]} numberOfLines={2}>
           {project.next_step}
+        </Text>
+        <Text style={[type.labelSm, { color: colors.dim, marginTop: 6 }]} numberOfLines={1}>
+          {project.name.toUpperCase()}
+          {project.next_step_at ? ` · ${timeAgo(project.next_step_at)}` : ''}
         </Text>
       </Press>
     </Animated.View>
@@ -789,7 +781,7 @@ function SignalLost({ onRetry }: { onRetry: () => void }) {
 
 /** No builds yet: an empty dashed folder where the first one will go. */
 function Empty({ onNew }: { onNew: () => void }) {
-  const dashed = { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.lineDashed } as const;
+  const dashed = { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.folderLine } as const;
   return (
     <View style={{ marginTop: 26 }}>
       <Text style={[type.labelSm, { color: colors.label }]}>MY BUILDS</Text>
@@ -814,8 +806,8 @@ function Empty({ onNew }: { onNew: () => void }) {
             },
           ]}
         >
-          <Text style={[type.area, { fontSize: 13, color: colors.dim }]}>NO BUILDS YET</Text>
-          <Text style={[type.bodySm, { color: colors.dim, textAlign: 'center' }]}>Tap + to start your first build.</Text>
+          <Text style={[type.area, { fontSize: 14, letterSpacing: 2.2, color: colors.heading }]}>NO BUILDS YET</Text>
+          <Text style={[type.body, { fontSize: 14, color: colors.dim, textAlign: 'center' }]}>Tap + to start your first build.</Text>
         </View>
       </Pressable>
     </View>
