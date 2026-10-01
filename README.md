@@ -4,7 +4,15 @@
 
 FORGE is a mobile app for makers: people building robots, drones, synths, CNC machines, solar rigs, anything with parts and steps. You name a build, and FORGE breaks it into **areas** (Hardware, Power, Software…) and **tasks**, then shows the whole thing as a living blueprint that fills in as you work.
 
-Built with Expo and React Native, Supabase and RevenueCat for **RevenueCat Shipaton 2026**.
+Built with Expo and React Native, Supabase and RevenueCat for **RevenueCat Shipaton 2026** (Next Gen).
+
+<p>
+  <img src="screenshots/FORGE_1_home.png" width="160" alt="Home: your builds as folders on a shelf" />
+  <img src="screenshots/FORGE_6_rain.png" width="160" alt="The matrix-rain switch from dark to light" />
+  <img src="screenshots/FORGE_3_blueprint.png" width="160" alt="A build's blueprint" />
+  <img src="screenshots/FORGE_4_tasks.png" width="160" alt="Every task in a build" />
+  <img src="screenshots/FORGE_7_light.png" width="160" alt="Home in light mode" />
+</p>
 
 ---
 
@@ -56,7 +64,9 @@ The whole app is one design system (`src/theme.ts`): a near-black background wit
 
 Every screen has designed **loading**, **error** and **empty** states, and all motion uses Material 3 easing curves (`src/lib/motion.ts`). Key actions (ticking a task, creating a build, a failed save) each have their own haptic, and tappable things squeeze slightly under your thumb.
 
-On iPhone, FORGE uses the platform's own touches instead: San Francisco for body text, SF Symbols for icons, and a Liquid Glass tab bar.
+**Light and dark.** Light mode is a full second palette, not an inverted screen. Switching is a "matrix rain" (`src/lib/appearance.tsx`): the screen is cut into columns one character wide, streams of dot-matrix characters step down cell by cell at different speeds, and the new theme appears above a ragged, moving edge. The choice is remembered on the phone.
+
+On iPhone, FORGE uses the platform's own touches where it counts: San Francisco for body text, SF Symbols for icons, and Liquid Glass on menus and toasts.
 
 ## How the backend works
 
@@ -95,12 +105,12 @@ You need a current LTS version of Node, a free [Supabase](https://supabase.com) 
 1. **Database.** In Supabase → SQL Editor, run each file in `sql/` **in order**, `01` to `07`. Only ever run `01_schema.sql` on a new project: it rebuilds the tables from scratch.
 2. **AI function.** Deploy `supabase/functions/ai` and add the secret `ANTHROPIC_API_KEY` under Edge Functions → Secrets.
 3. **Keys.** Copy `.env.example` to `.env` and fill in your Supabase URL and publishable key. The RevenueCat keys are optional: without them the app uses RevenueCat's Test Store.
-4. **Run.** FORGE uses native modules (RevenueCat), so it needs a development build rather than Expo Go:
+4. **Run.** FORGE runs in **Expo Go** (RevenueCat switches to its Test Store there):
    ```bash
    npm install
-   npx eas-cli build --profile development --platform android   # once
-   npx expo start --dev-client
+   npx expo start --go
    ```
+   Scan the QR code with Expo Go. Voice input ("say it out loud", `src/components/voice.tsx`) is built but switched off in this version: it needs a development build (`npx eas-cli build --profile development`), because Expo Go doesn't include speech recognition.
 
 ## Licence
 
